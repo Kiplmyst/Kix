@@ -140,6 +140,24 @@
       font: inherit;
       font-size: .72rem;
     }
+    .utilities input[type="text"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      min-height: 36px;
+      padding: 5px 8px;
+      border: 1px solid #315941;
+      color: var(--text);
+      background: #0a1610;
+      font: inherit;
+      font-size: .72rem;
+    }
+    .recommendation {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--muted);
+      font-size: .65rem;
+      line-height: 1.5;
+    }
     .action.danger { color: #ff9aa1; border-color: #784049; background: #29151a; }
     .action.danger:hover { border-color: var(--red); background: #3a1a21; }
     .file-input { display: none; }
@@ -318,6 +336,34 @@
     body[data-banner="sunset"] .player-banner { color: #fff; background: linear-gradient(110deg, #f97316, #ec4899, #8b5cf6); }
     body[data-effects~="effect-cascade"] canvas { border-color: var(--lime); }
     body[data-effects~="effect-pulse"] .board-wrap { filter: drop-shadow(0 0 9px var(--lime)); }
+    body[data-crt="on"]::after {
+      position: fixed;
+      z-index: 2;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      background:
+        radial-gradient(ellipse at center, transparent 55%, #0008 100%),
+        repeating-linear-gradient(0deg, #00000018 0 1px, transparent 1px 3px);
+      box-shadow: inset 0 0 100px #0008;
+    }
+    body[data-crt="on"] .board-wrap {
+      overflow: hidden;
+      border-radius: 14px;
+      filter: drop-shadow(0 0 14px #84ff9f35);
+    }
+    body[data-crt="on"] .board-wrap::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      border: 1px solid #b6ffd522;
+      border-radius: inherit;
+      background:
+        radial-gradient(ellipse at center, transparent 50%, #0005 100%),
+        repeating-linear-gradient(0deg, #00000020 0 1px, transparent 1px 3px);
+    }
+    body[data-crt="on"] canvas { filter: saturate(1.12) contrast(1.04); }
     #matrixBackground {
       position: fixed;
       z-index: 0;
@@ -452,12 +498,17 @@
           <kbd>C</kbd> hold &nbsp; <kbd>P</kbd> pause
         </p>
         <div class="utilities">
+          <label for="operatorNameInput">Operator name</label>
+          <input id="operatorNameInput" type="text" maxlength="20" autocomplete="nickname" aria-label="Custom operator name">
           <label for="presetSelect">Visual preset</label>
           <select id="presetSelect">
             <option value="minimal">Minimal · clean</option>
             <option value="arcade">Arcade · balanced</option>
             <option value="deluxe">Deluxe · extra glow</option>
           </select>
+          <button class="action" id="crtButton" aria-pressed="false">CRT effect: off</button>
+          <button class="action" id="recommendedButton">Use recommended</button>
+          <p class="recommendation" id="recommendationText" aria-live="polite"></p>
           <button class="action" id="soundButton" aria-pressed="true">Sound: on</button>
           <button class="action" id="exportButton">Export JSON</button>
           <button class="action" id="importButton">Import JSON</button>
@@ -713,6 +764,7 @@
       ];
       const SAVE_KEY = "terrack-profile-v1";
       const SETTINGS_KEY = "terrack-settings-v1";
+      const DEVICE_COOKIE = "terrack-device-v1";
       const VALID_PRESETS = ["minimal", "arcade", "deluxe"];
 
       const $ = id => document.getElementById(id);
@@ -844,13 +896,55 @@
         }
       }
 
+      function getSystemRecommendation() {
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+        const mobile = navigator.userAgentData?.mobile ?? coarsePointer;
+        const cores = navigator.hardwareConcurrency || 0;
+        const memory = navigator.deviceMemory || 0;
+        const lowPower = (cores > 0 && cores <= 4) || (memory > 0 && memory <= 4);
+        const tier = reducedMotion ? "accessibility" : mobile ? "mobile" : lowPower ? "low-power" : "standard";
+        const recommendation = {
+          tier,
+          preset: tier === "standard" ? "arcade" : "minimal",
+          crt: tier === "standard"
+        };
+        const cookie = document.cookie.split("; ").find(value => value.startsWith(`${DEVICE_COOKIE}=`));
+        const cached = cookie?.slice(DEVICE_COOKIE.length + 1).split(".");
+        if (cached?.[0] === tier && VALID_PRESETS.includes(cached[1]) && ["0", "1"].includes(cached[2])) {
+          return { tier, preset: cached[1], crt: cached[2] === "1" };
+        }
+        return recommendation;
+      }
+
+      function saveDeviceRecommendation(recommendation) {
+        const value = `${recommendation.tier}.${recommendation.preset}.${recommendation.crt ? "1" : "0"}`;
+        const secure = location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `${DEVICE_COOKIE}=${encodeURIComponent(value)}; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+        if (!document.cookie.split("; ").some(cookie => cookie.startsWith(`${DEVICE_COOKIE}=`))) {
+          console.warn("Terrack could not save the device recommendation cookie.");
+        }
+      }
+
+      const systemRecommendation = getSystemRecommendation();
+      saveDeviceRecommendation(systemRecommendation);
+
       function loadSettings() {
-        const defaults = { preset: "arcade", sound: true };
+        const defaults = {
+          preset: systemRecommendation.preset,
+          sound: true,
+          crt: systemRecommendation.crt,
+          operatorName: "PLAYER_01"
+        };
         try {
           const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
           return {
             preset: saved && VALID_PRESETS.includes(saved.preset) ? saved.preset : defaults.preset,
-            sound: saved && typeof saved.sound === "boolean" ? saved.sound : defaults.sound
+            sound: saved && typeof saved.sound === "boolean" ? saved.sound : defaults.sound,
+            crt: saved && typeof saved.crt === "boolean" ? saved.crt : defaults.crt,
+            operatorName: saved && typeof saved.operatorName === "string"
+              ? saved.operatorName.trim().replace(/\s+/g, " ").slice(0, 20) || defaults.operatorName
+              : defaults.operatorName
           };
         } catch (error) {
           console.warn("Terrack could not load its settings.", error);
@@ -910,10 +1004,23 @@
 
       function applyPreset() {
         document.body.dataset.preset = settings.preset;
+        document.body.dataset.crt = settings.crt ? "on" : "off";
         document.body.dataset.theme = profile.equippedTheme;
         document.body.dataset.banner = profile.equippedBanner;
         document.body.dataset.effects = profile.equippedEffects.join(" ");
         $("presetSelect").value = settings.preset;
+        $("operatorNameInput").value = settings.operatorName;
+        $("operatorTitle").textContent = settings.operatorName;
+        $("crtButton").textContent = `CRT effect: ${settings.crt ? "on" : "off"}`;
+        $("crtButton").setAttribute("aria-pressed", String(settings.crt));
+        const tierNames = {
+          accessibility: "reduced-motion system",
+          mobile: "mobile system",
+          "low-power": "lower-power system",
+          standard: "standard system"
+        };
+        $("recommendationText").textContent =
+          `Recommended for this ${tierNames[systemRecommendation.tier]}: ${systemRecommendation.preset} preset, CRT ${systemRecommendation.crt ? "on" : "off"}. A first-party cookie remembers this device category and recommendation; saved settings always take priority.`;
         $("soundButton").textContent = `Sound: ${settings.sound ? "on" : "off"}`;
         $("soundButton").setAttribute("aria-pressed", String(settings.sound));
         syncMatrixBackground();
@@ -1026,7 +1133,7 @@
 
       function updatePlayerCard() {
         $("playerTitle").textContent = profile.equippedTitle;
-        $("operatorTitle").textContent = profile.equippedTitle;
+        $("operatorTitle").textContent = settings.operatorName;
         const banners = { plain: "GRID STARTER", neon: "NEON SIGNAL", gold: "GOLD CIRCUIT", glitch: "SIGNAL CORRUPTION" };
         $("playerBanner").textContent = banners[profile.equippedBanner] || banners.plain;
         const select = $("showcaseSelect");
@@ -1956,6 +2063,23 @@
       $("restartButton").addEventListener("click", startGame);
       $("presetSelect").addEventListener("change", event => {
         settings.preset = VALID_PRESETS.includes(event.target.value) ? event.target.value : "arcade";
+        applyPreset();
+        saveSettings();
+      });
+      $("operatorNameInput").addEventListener("change", event => {
+        const name = event.target.value.trim().replace(/\s+/g, " ").slice(0, 20);
+        settings.operatorName = name || "PLAYER_01";
+        applyPreset();
+        saveSettings();
+      });
+      $("crtButton").addEventListener("click", () => {
+        settings.crt = !settings.crt;
+        applyPreset();
+        saveSettings();
+      });
+      $("recommendedButton").addEventListener("click", () => {
+        settings.preset = systemRecommendation.preset;
+        settings.crt = systemRecommendation.crt;
         applyPreset();
         saveSettings();
       });
