@@ -56,7 +56,9 @@
       border: 1px solid var(--line);
       background: color-mix(in srgb, var(--panel) 94%, transparent);
       box-shadow: 0 10px 40px #0005, inset 0 0 30px #65ff8b08;
+      border-radius: 12px;
     }
+    .hold-panel, .stat, .leaderboard-stat, .rank-card, .shop-item, .achievement-category, .achievement { border-radius: 7px; }
     .game-panel { padding: 14px; }
     .playfield-area {
       display: grid;
@@ -111,6 +113,7 @@
       background: #10251a;
       cursor: pointer;
       transition: background .12s, transform .12s, border-color .12s;
+      border-radius: 5px;
     }
     .action:hover, .pad button:hover { border-color: var(--green); background: #183725; }
     .action:active, .pad button:active { transform: translateY(1px); }
@@ -176,6 +179,30 @@
     .shop-note { margin: 9px 0 0; color: var(--muted); font-size: .67rem; line-height: 1.6; }
     .shop-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
     .shop-actions .action { min-height: 34px; padding: 5px 10px; font-size: .68rem; }
+    #crateButton { position: relative; }
+    #crateButton::after {
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      color: var(--lime);
+      content: "✦";
+      font-size: 1rem;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #crateButton.crate-opening { animation: crate-pop .72s ease-out; }
+    #crateButton.crate-opening::after { animation: crate-sparkle .72s ease-out; }
+    @keyframes crate-pop {
+      0%, 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 transparent; }
+      22% { transform: scale(1.08) rotate(-5deg); box-shadow: 0 0 22px #c8ff7588; }
+      48% { transform: scale(1.04) rotate(4deg); }
+      72% { transform: scale(1.06) rotate(-2deg); box-shadow: 0 0 16px #84ff9f66; }
+    }
+    @keyframes crate-sparkle {
+      0% { opacity: 0; transform: translateY(8px) scale(.3) rotate(-30deg); }
+      35% { opacity: 1; transform: translateY(-4px) scale(1.35) rotate(12deg); }
+      100% { opacity: 0; transform: translateY(-15px) scale(.7) rotate(35deg); }
+    }
     #crateCost { color: var(--muted); font-size: .64rem; }
     .shop-items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
     .shop-item { display: flex; flex-direction: column; min-height: 112px; padding: 10px; border: 1px solid #1b3025; background: #09120e; }
@@ -224,6 +251,7 @@
       width: min(320px, calc(100vw - 36px));
       padding: 13px 15px;
       border: 1px solid var(--green);
+      border-radius: 10px;
       background: #102419f5;
       box-shadow: 0 8px 30px #0008, 0 0 24px #84ff9f22;
       opacity: 0;
@@ -342,6 +370,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      #crateButton.crate-opening, #crateButton.crate-opening::after { animation: none; }
     }
   </style>
 </head>
@@ -1313,6 +1342,10 @@
       function openLootCrate() {
         const cost = lootCrateCost();
         if (profile.scrap < cost) return;
+        const crateButton = $("crateButton");
+        crateButton.classList.remove("crate-opening");
+        void crateButton.offsetWidth;
+        crateButton.classList.add("crate-opening");
         profile.scrap -= cost;
         profile.crateOpens++;
         const roll = Math.random() * 100;

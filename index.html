@@ -232,10 +232,41 @@
       font-size: 13px;
     }
 
+    .showcase-group {
+      margin-top: 18px;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 0 20px;
+    }
+
+    .group-header h3 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: -0.05em;
+      line-height: 1.1;
+    }
+
+    .group-note {
+      max-width: 290px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
     .project-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
+    }
+
+    .game-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .project-card {
@@ -368,6 +399,16 @@
         grid-template-columns: 1fr;
       }
 
+      .game-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .group-header {
+        align-items: start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
       .project-card {
         min-height: 215px;
       }
@@ -407,6 +448,12 @@
         gap: 12px;
       }
 
+      .group-header {
+        align-items: start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
       .footer-inner {
         min-height: 70px;
       }
@@ -438,7 +485,8 @@
         <span>Kix</span>
       </a>
       <nav class="nav-links" aria-label="Main navigation">
-        <a href="#projects">Projects</a>
+        <a href="#core-goals">Core goals</a>
+        <a href="#games">Games</a>
         <a href="#about">About</a>
       </nav>
     </div>
@@ -450,36 +498,20 @@
           <p class="eyebrow">A home for big ideas</p>
           <h1>Ideas worth making.<br><span>Made for the web.</span></h1>
           <p class="hero-copy">I write for the browser, turning a wide range of software ideas into fast, thoughtful experiences with efficient code.</p>
-        <a class="button" href="#projects">Explore the projects <span aria-hidden="true">→</span></a>
+        <a class="button" href="#core-goals">Explore the projects <span aria-hidden="true">→</span></a>
       </div>
     </section>
 
-    <section class="section wrap" id="projects">
+    <section class="section wrap" id="core-goals">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Ideas, tools &amp; rewrites</p>
-          <h2>A growing world of software.</h2>
+          <p class="eyebrow">Core goals</p>
+          <h2>Software worth building.</h2>
         </div>
-        <p class="section-note">Big ideas, browser-first tools, and thoughtful new takes on software—all built to be fast and useful.</p>
+        <p class="section-note">The main ideas behind Kix: browser-first tools, better rewrites, and experiments designed to be useful.</p>
       </div>
 
       <div class="project-grid">
-        <a class="project-card" href="Snake/">
-          <div class="card-top">
-            <span class="project-icon" aria-hidden="true">↝</span>
-            <span class="status">Playable game</span>
-          </div>
-          <h3>Snake</h3>
-          <p>Guide the snake, collect food, and see how long you can keep growing.</p>
-        </a>
-        <a class="project-card" href="Tetris/">
-          <div class="card-top">
-            <span class="project-icon" aria-hidden="true">▦</span>
-            <span class="status">Playable game</span>
-          </div>
-          <h3>Terrack</h3>
-          <p>A browser-based falling-block puzzle game. Fit the pieces together and clear rows.</p>
-        </a>
         <article class="project-card">
           <div class="card-top">
             <span class="project-icon" aria-hidden="true">✳</span>
@@ -504,6 +536,32 @@
           <h3>Ideas in progress</h3>
           <p>A home for experiments, ambitious concepts, and whatever useful thing comes to mind next.</p>
         </article>
+      </div>
+    </section>
+
+    <section class="section wrap showcase-group" id="games">
+      <div class="group-header">
+        <h3>Games</h3>
+        <p class="group-note">Playful experiments and browser-based classics built as part of the same creative space.</p>
+      </div>
+
+      <div class="project-grid game-grid">
+        <a class="project-card" href="Snake/">
+          <div class="card-top">
+            <span class="project-icon" aria-hidden="true">↝</span>
+            <span class="status">Playable game</span>
+          </div>
+          <h3>Snake</h3>
+          <p>Guide the snake, collect food, and see how long you can keep growing.</p>
+        </a>
+        <a class="project-card" href="Tetris/">
+          <div class="card-top">
+            <span class="project-icon" aria-hidden="true">▦</span>
+            <span class="status">Playable game</span>
+          </div>
+          <h3>Terrack</h3>
+          <p>A browser-based falling-block puzzle game. Fit the pieces together and clear rows.</p>
+        </a>
       </div>
     </section>
 
