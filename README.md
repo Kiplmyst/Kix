@@ -11,7 +11,7 @@ Kix is basically a home for small, fun software ideas:
 - playful coding projects that are meant to be enjoyed, not treated like a giant production platform
 - a space for testing ideas without the usual pressure of “enterprise” polish
 
-The site itself leans into a clean, modern aesthetic with a bold, dark look and a little bit of energizing color. It feels more like a digital playground than a serious SaaS product — and that is very much the point.
+The site itself leans into a bright, retro 2000s aesthetic: primary colors, a globe logo, pixel-inspired details, and playful browser interactions. It feels more like a digital playground than a serious SaaS product — and that is very much the point.
 
 ## Why it exists
 
