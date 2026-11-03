@@ -1,0 +1,2305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07100e">
+  <title>Terrack WASM — falling blocks</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07100e;
+      --panel: #0b1713;
+      --line: #204333;
+      --muted: #71917e;
+      --text: #d3f5dc;
+      --green: #84ff9f;
+      --lime: #c8ff75;
+      --amber: #ffd166;
+      --red: #ff6b76;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 16px 38px;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 50% -20%, #193d2d 0, transparent 54%),
+        repeating-linear-gradient(0deg, #07100e 0 3px, #08120f 3px 4px);
+    }
+
+    button { font: inherit; }
+    button:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+
+    .shell { width: min(940px, 100%); margin: 0 auto; }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow, .label { color: var(--muted); font-size: .73rem; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 5px 0 0; color: var(--green); font-size: clamp(2rem, 7vw, 3.2rem); letter-spacing: .08em; text-shadow: 0 0 18px #65ff8b38; }
+    .subtitle { margin: 5px 0 0; color: var(--muted); font-size: .82rem; }
+    .header-meta { text-align: right; color: var(--muted); font-size: .75rem; line-height: 1.8; }
+    .header-meta strong { color: var(--green); font-weight: 600; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; padding-top: 18px; }
+    .game-panel, .side-panel, .achievements, .leaderboard, .rank-panel, .shop-panel, .player-card {
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      box-shadow: 0 10px 40px #0005, inset 0 0 30px #65ff8b08;
+      border-radius: 12px;
+    }
+    .hold-panel, .stat, .leaderboard-stat, .rank-card, .shop-item, .achievement-category, .achievement { border-radius: 7px; }
+    .game-panel { padding: 14px; }
+    .playfield-area {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 360px);
+      align-items: start;
+      justify-content: center;
+      gap: 12px;
+    }
+    .left-rail { display: grid; gap: 9px; }
+    .hold-panel { padding: 9px; border: 1px solid #1c3c2d; background: #08130f; }
+    .hold-panel .section-title { margin-bottom: 8px; font-size: .68rem; }
+    .hold-wrap { width: 100%; }
+    #holdCanvas { border-color: #1c3c2d; }
+    .hold-label { display: block; min-height: 1em; margin-top: 6px; color: var(--muted); font-size: .6rem; text-align: center; }
+    .board-wrap { position: relative; width: 100%; max-width: 360px; }
+    canvas { display: block; width: 100%; height: auto; border: 1px solid #28513a; background: #06100c; }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      gap: 8px;
+      padding: 20px;
+      text-align: center;
+      background: #06100cdb;
+      transition: opacity .16s ease;
+    }
+    .overlay[hidden] { display: none; }
+    .overlay strong { color: var(--lime); font-size: 1.1rem; letter-spacing: .1em; }
+    .overlay span { color: var(--muted); font-size: .78rem; line-height: 1.6; }
+    .status-line { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--muted); font-size: .72rem; }
+    #eventText { color: var(--lime); text-align: right; }
+
+    .stats { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0; }
+    .stat { min-width: 0; padding: 7px; border: 1px solid #1c3c2d; background: #08130f; }
+    .stat .label { display: block; margin-bottom: 3px; font-size: .59rem; }
+    .stat strong { color: var(--green); font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+    .side-panel { padding: 14px; }
+    .section-title { margin: 0 0 12px; color: var(--green); font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+    .next-wrap { width: 100%; max-width: 150px; margin: 0 auto 16px; }
+    #nextCanvas { border-color: #1c3c2d; }
+    .progress-block { margin: 14px 0 18px; }
+    .progress-meta { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: var(--muted); font-size: .68rem; }
+    .progress-meta strong { color: var(--lime); font-weight: 600; }
+    .progress-track { height: 7px; overflow: hidden; border: 1px solid #234333; background: #06100c; }
+    .progress-fill { width: 0; height: 100%; background: linear-gradient(90deg, #52d977, #d3ff7e); box-shadow: 0 0 10px #84ff9f88; transition: width .25s ease; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .action, .pad button {
+      min-height: 38px;
+      border: 1px solid #315941;
+      color: var(--text);
+      background: #10251a;
+      cursor: pointer;
+      transition: background .12s, transform .12s, border-color .12s;
+      border-radius: 5px;
+    }
+    .action:hover, .pad button:hover { border-color: var(--green); background: #183725; }
+    .action:active, .pad button:active { transform: translateY(1px); }
+    .action.primary { color: #07100e; border-color: var(--green); background: var(--green); font-weight: 700; }
+    .action.primary:hover { background: var(--lime); }
+    .action.wide { grid-column: 1 / -1; }
+    .utilities {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .utilities label { grid-column: 1 / -1; color: var(--muted); font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; }
+    .utilities select {
+      grid-column: 1 / -1;
+      width: 100%;
+      min-height: 36px;
+      padding: 5px 8px;
+      border: 1px solid #315941;
+      color: var(--text);
+      background: #0a1610;
+      font: inherit;
+      font-size: .72rem;
+    }
+    .utilities input[type="text"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      min-height: 36px;
+      padding: 5px 8px;
+      border: 1px solid #315941;
+      color: var(--text);
+      background: #0a1610;
+      font: inherit;
+      font-size: .72rem;
+    }
+    .recommendation {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--muted);
+      font-size: .65rem;
+      line-height: 1.5;
+    }
+    .action.danger { color: #ff9aa1; border-color: #784049; background: #29151a; }
+    .action.danger:hover { border-color: var(--red); background: #3a1a21; }
+    .file-input { display: none; }
+    .key-help { margin: 16px 0 0; color: var(--muted); font-size: .65rem; line-height: 1.8; }
+    .key-help kbd { padding: 1px 4px; border: 1px solid #31513e; color: var(--text); background: #0a1610; }
+
+    .pad { display: none; grid-template-columns: repeat(3, 1fr); gap: 7px; width: min(280px, 100%); margin: 14px auto 0; }
+    .pad button { min-height: 44px; color: var(--green); font-size: 1rem; touch-action: manipulation; }
+    .pad .drop { color: #07100e; border-color: var(--green); background: var(--green); }
+    .achievements { margin-top: 18px; padding: 14px; }
+    .achievement-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .achievement-heading .section-title { margin: 0; }
+    #achievementCount { color: var(--muted); font-size: .7rem; }
+    .achievement-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .leaderboard { margin-top: 18px; padding: 14px; }
+    .leaderboard-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+    .leaderboard-stat { padding: 9px 10px; border: 1px solid #1c3c2d; background: #08130f; }
+    .leaderboard-stat span { display: block; margin-bottom: 5px; color: var(--muted); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
+    .leaderboard-stat strong { color: var(--green); font-size: .95rem; font-weight: 600; }
+    .leaderboard-table-wrap { overflow-x: auto; }
+    .leaderboard table { width: 100%; border-collapse: collapse; font-size: .72rem; text-align: left; }
+    .leaderboard th, .leaderboard td { padding: 9px 10px; border-bottom: 1px solid #1b3025; white-space: nowrap; }
+    .leaderboard th { color: var(--muted); font-size: .63rem; letter-spacing: .08em; text-transform: uppercase; }
+    .leaderboard td { color: var(--text); }
+    .leaderboard tbody tr:first-child td { color: var(--lime); }
+    .leaderboard-empty { padding: 18px 10px; color: var(--muted); font-size: .75rem; text-align: center; }
+    .rank-panel, .shop-panel { margin-top: 18px; padding: 14px; }
+    .rank-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+    .rank-card { padding: 8px; border: 1px solid #1b3025; background: #09120e; }
+    .rank-card.current { border-color: var(--green); box-shadow: inset 0 0 12px #84ff9f15; }
+    .rank-card strong { display: block; color: var(--text); font-size: .68rem; }
+    .rank-card.current strong { color: var(--lime); }
+    .rank-card span { display: block; margin-top: 4px; color: var(--muted); font-size: .61rem; }
+    .shop-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .shop-heading .section-title { margin: 0; }
+    #scrapBalance { color: var(--lime); font-size: .75rem; }
+    .shop-note { margin: 9px 0 0; color: var(--muted); font-size: .67rem; line-height: 1.6; }
+    .shop-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+    .shop-actions .action { min-height: 34px; padding: 5px 10px; font-size: .68rem; }
+    #crateButton { position: relative; }
+    #crateButton::after {
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      color: var(--lime);
+      content: "✦";
+      font-size: 1rem;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #crateButton.crate-opening { animation: crate-pop .72s ease-out; }
+    #crateButton.crate-opening::after { animation: crate-sparkle .72s ease-out; }
+    @keyframes crate-pop {
+      0%, 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 transparent; }
+      22% { transform: scale(1.08) rotate(-5deg); box-shadow: 0 0 22px #c8ff7588; }
+      48% { transform: scale(1.04) rotate(4deg); }
+      72% { transform: scale(1.06) rotate(-2deg); box-shadow: 0 0 16px #84ff9f66; }
+    }
+    @keyframes crate-sparkle {
+      0% { opacity: 0; transform: translateY(8px) scale(.3) rotate(-30deg); }
+      35% { opacity: 1; transform: translateY(-4px) scale(1.35) rotate(12deg); }
+      100% { opacity: 0; transform: translateY(-15px) scale(.7) rotate(35deg); }
+    }
+    #crateCost { color: var(--muted); font-size: .64rem; }
+    .shop-items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .shop-item { display: flex; flex-direction: column; min-height: 112px; padding: 10px; border: 1px solid #1b3025; background: #09120e; }
+    .shop-item strong { color: var(--lime); font-size: .7rem; }
+    .shop-item p { flex: 1; margin: 6px 0 10px; color: var(--muted); font-size: .64rem; line-height: 1.5; }
+    .shop-item .action { width: 100%; min-height: 32px; font-size: .65rem; }
+    .achievement-category { margin-top: 8px; border: 1px solid #1b3025; background: #09120e; }
+    .achievement-category summary { padding: 9px 10px; color: var(--green); cursor: pointer; font-size: .72rem; }
+    .achievement-category summary span { float: right; color: var(--muted); font-size: .65rem; }
+    .achievement-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0 8px 8px; list-style: none; }
+    .achievement-list .achievement { min-height: 0; padding: 7px; }
+    .achievement-list .achievement strong { margin-bottom: 3px; font-size: .64rem; }
+    .achievement-list .achievement span { font-size: .59rem; }
+    .player-card { margin: 10px 0; overflow: hidden; border-color: #315941; }
+    .player-banner { padding: 8px 10px; color: #07100e; background: linear-gradient(90deg, #84ff9f, #c8ff75); font-size: .64rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .player-identity { padding: 9px 10px; }
+    .player-identity strong { color: var(--green); font-size: .77rem; }
+    .player-identity span { display: block; margin-top: 4px; color: var(--muted); font-size: .64rem; }
+    .showcase-label { display: block; margin-top: 9px; color: var(--muted); font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; }
+    .player-identity select { width: 100%; margin-top: 5px; padding: 6px; border: 1px solid #315941; color: var(--text); background: #0a1610; font: inherit; font-size: .62rem; }
+    .player-identity .showcase-badge { margin-top: 7px; color: var(--lime); }
+    body[data-preset="minimal"] .leaderboard,
+    body[data-preset="minimal"] .rank-panel,
+    body[data-preset="minimal"] .shop-panel,
+    body[data-preset="minimal"] .player-card { box-shadow: none; }
+    body[data-preset="deluxe"] .leaderboard,
+    body[data-preset="deluxe"] .rank-panel,
+    body[data-preset="deluxe"] .shop-panel,
+    body[data-preset="deluxe"] .player-card { box-shadow: 0 10px 40px #0007, 0 0 22px #65ff8b12, inset 0 0 30px #65ff8b0c; }
+    .achievement {
+      min-height: 68px;
+      padding: 9px;
+      border: 1px solid #1b3025;
+      background: #09120e;
+      opacity: .58;
+    }
+    .achievement.unlocked { border-color: #3d7249; opacity: 1; background: linear-gradient(135deg, #102619, #0a140f); }
+    .achievement strong { display: block; margin-bottom: 5px; color: #a9c5b0; font-size: .7rem; }
+    .achievement.unlocked strong { color: var(--lime); }
+    .achievement span { display: block; color: var(--muted); font-size: .62rem; line-height: 1.4; }
+    .toast {
+      position: fixed;
+      z-index: 3;
+      right: 18px;
+      bottom: 18px;
+      width: min(320px, calc(100vw - 36px));
+      padding: 13px 15px;
+      border: 1px solid var(--green);
+      border-radius: 10px;
+      background: #102419f5;
+      box-shadow: 0 8px 30px #0008, 0 0 24px #84ff9f22;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .18s, transform .18s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast strong { display: block; margin-bottom: 4px; color: var(--lime); font-size: .8rem; }
+    .toast span { color: var(--text); font-size: .72rem; }
+    footer { padding-top: 14px; color: #557060; font-size: .65rem; line-height: 1.7; text-align: center; }
+
+    body[data-preset="minimal"] {
+      --panel: #0b1512;
+      --line: #293a31;
+      --muted: #91a197;
+      --green: #b8e4c2;
+      --lime: #e0edb0;
+      background: #080e0c;
+    }
+    body[data-preset="minimal"] .game-panel,
+    body[data-preset="minimal"] .side-panel,
+    body[data-preset="minimal"] .achievements { box-shadow: none; }
+    body[data-preset="minimal"] .board-wrap::after { display: none; }
+    body[data-preset="arcade"] .board-wrap::after,
+    body[data-preset="deluxe"] .board-wrap::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      background: repeating-linear-gradient(0deg, #0000000a 0 1px, transparent 1px 4px);
+    }
+    body[data-preset="deluxe"] {
+      --panel: #0c1a14;
+      --line: #34704b;
+      --green: #8dffab;
+      --lime: #d3ff73;
+      background:
+        radial-gradient(ellipse at 50% -20%, #245537 0, transparent 57%),
+        repeating-linear-gradient(0deg, #07100e 0 3px, #08120f 3px 4px);
+    }
+    body[data-preset="deluxe"] .game-panel,
+    body[data-preset="deluxe"] .side-panel,
+    body[data-preset="deluxe"] .achievements { box-shadow: 0 10px 40px #0007, 0 0 22px #65ff8b12, inset 0 0 30px #65ff8b0c; }
+    body[data-preset="deluxe"] canvas { box-shadow: 0 0 18px #65ff8b22; }
+    body[data-theme="amber"] { --green: #ffd166; --lime: #ffe7a0; --line: #694d24; }
+    body[data-theme="ocean"] { --green: #61ddff; --lime: #9af4ff; --line: #205166; }
+    body[data-theme="violet"] { --green: #d29bff; --lime: #f0c4ff; --line: #563270; }
+    body[data-theme="rose"] { --green: #ff83ad; --lime: #ffc0d1; --line: #6a3046; }
+    body[data-theme="ember"] { --green: #ff9a63; --lime: #ffd08a; --line: #713922; }
+    body[data-theme="matrix"] { --green: #54ff85; --lime: #b7ff67; --line: #206237; }
+    body[data-theme="ice"] { --green: #83d9ff; --lime: #c4f1ff; --line: #285d78; }
+    body[data-theme="sunset"] { --green: #ff9c9c; --lime: #ffd08a; --line: #74375c; }
+    body[data-theme="ember"] { --green: #ff9a63; --lime: #ffd08a; --line: #713922; }
+    body[data-theme="matrix"] { --green: #54ff85; --lime: #b7ff67; --line: #206237; }
+    body[data-theme="ice"] { --green: #83d9ff; --lime: #c4f1ff; --line: #285d78; }
+    body[data-theme="sunset"] { --green: #ff9c9c; --lime: #ffd08a; --line: #74375c; }
+    body[data-banner="neon"] .player-banner { color: #fff; background: linear-gradient(100deg, #ec4899, #7c3aed, #06b6d4); }
+    body[data-banner="gold"] .player-banner { background: linear-gradient(100deg, #b7791f, #ffe08a, #b7791f); }
+    body[data-banner="glitch"] .player-banner { color: #fff; background: repeating-linear-gradient(110deg, #193cff 0 12px, #e532ff 12px 24px, #07100e 24px 28px); }
+    body[data-banner="aurora"] .player-banner { color: #06100c; background: linear-gradient(110deg, #80ffb1, #69d7ff, #d6ff9c); }
+    body[data-banner="sunset"] .player-banner { color: #fff; background: linear-gradient(110deg, #f97316, #ec4899, #8b5cf6); }
+    body[data-banner="aurora"] .player-banner { color: #06100c; background: linear-gradient(110deg, #80ffb1, #69d7ff, #d6ff9c); }
+    body[data-banner="sunset"] .player-banner { color: #fff; background: linear-gradient(110deg, #f97316, #ec4899, #8b5cf6); }
+    body[data-effects~="effect-cascade"] canvas { border-color: var(--lime); }
+    body[data-effects~="effect-pulse"] .board-wrap { filter: drop-shadow(0 0 9px var(--lime)); }
+    body[data-crt="on"]::after {
+      position: fixed;
+      z-index: 2;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      background:
+        radial-gradient(ellipse at center, transparent 55%, #0008 100%),
+        repeating-linear-gradient(0deg, #00000018 0 1px, transparent 1px 3px);
+      box-shadow: inset 0 0 100px #0008;
+    }
+    body[data-crt="on"] .board-wrap {
+      overflow: hidden;
+      border-radius: 14px;
+      filter: drop-shadow(0 0 14px #84ff9f35);
+    }
+    body[data-crt="on"] .board-wrap::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      border: 1px solid #b6ffd522;
+      border-radius: inherit;
+      background:
+        radial-gradient(ellipse at center, transparent 50%, #0005 100%),
+        repeating-linear-gradient(0deg, #00000020 0 1px, transparent 1px 3px);
+    }
+    body[data-crt="on"] canvas { filter: saturate(1.12) contrast(1.04); }
+    #matrixBackground {
+      position: fixed;
+      z-index: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      opacity: .24;
+      pointer-events: none;
+    }
+    .shell { position: relative; z-index: 1; }
+    body[data-effects~="effect-matrix"] { background: #030907; }
+    body[data-effects~="effect-matrix"] .game-panel,
+    body[data-effects~="effect-matrix"] .side-panel,
+    body[data-effects~="effect-matrix"] .achievements,
+    body[data-effects~="effect-matrix"] .leaderboard,
+    body[data-effects~="effect-matrix"] .rank-panel,
+    body[data-effects~="effect-matrix"] .shop-panel { background: color-mix(in srgb, var(--panel) 82%, transparent); }
+    @media (prefers-reduced-motion: reduce) {
+      #matrixBackground { display: none; }
+    }
+    body[data-effects~="effect-pulse"] .board-wrap { filter: drop-shadow(0 0 9px var(--lime)); }
+
+    @media (max-width: 680px) {
+      body { padding: 18px 12px 30px; }
+      .layout { grid-template-columns: 1fr; gap: 12px; }
+      .playfield-area { grid-template-columns: 72px minmax(0, 1fr); gap: 8px; }
+      .left-rail { gap: 6px; }
+      .hold-panel { padding: 5px; }
+      .hold-panel .section-title { font-size: .6rem; letter-spacing: .06em; }
+      .stat { padding: 5px 4px; }
+      .stat .label { font-size: .52rem; letter-spacing: .04em; }
+      .stat strong { font-size: .68rem; }
+      .side-panel { display: grid; grid-template-columns: 1fr 1.4fr; gap: 0 14px; align-items: start; }
+      .side-panel > .section-title { grid-column: 1 / -1; }
+      .next-wrap { grid-row: span 3; margin: 0; }
+      .progress-block { margin: 3px 0 12px; }
+      .controls { align-self: start; }
+      .utilities { grid-column: 1 / -1; }
+      .key-help { grid-column: 1 / -1; margin-top: 10px; }
+      .pad { display: grid; }
+      .achievement-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .shop-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .rank-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 390px) {
+      .game-panel { padding: 9px; }
+      .side-panel { padding: 10px; }
+      .achievement-list { gap: 6px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      #crateButton.crate-opening, #crateButton.crate-opening::after { animation: none; }
+    }
+    body[data-color-mode="light"] {
+      color-scheme: light;
+      --bg: #e8f4f5;
+      --panel: #f7fbfa;
+      --line: #b8d5d9;
+      --muted: #58777e;
+      --text: #203d46;
+      --amber: #94632c;
+      --red: #ad4751;
+      background:
+        radial-gradient(ellipse at 50% -20%, #ffffff 0, transparent 62%),
+        linear-gradient(160deg, #dceff2, #edf5f1 52%, #e4f1ed);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body[data-color-mode="dark"] {
+      color-scheme: dark;
+      --bg: #101d2a;
+      --panel: #172a37;
+      --line: #345362;
+      --muted: #a4bbc2;
+      --text: #e4f1ef;
+      --amber: #edc77a;
+      --red: #f18b91;
+      background:
+        radial-gradient(ellipse at 50% -24%, #31566a 0, transparent 62%),
+        linear-gradient(160deg, #101d2a, #172c37 58%, #162d33);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body[data-color-mode="light"][data-theme="default"] { --green: #287c91; --lime: #347d72; }
+    body[data-color-mode="dark"][data-theme="default"] { --green: #82c9d2; --lime: #a7d8ad; }
+    body[data-color-mode] h1 {
+      color: var(--green);
+      letter-spacing: .025em;
+      text-shadow: none;
+    }
+    body[data-color-mode] .game-panel,
+    body[data-color-mode] .side-panel,
+    body[data-color-mode] .achievements,
+    body[data-color-mode] .leaderboard,
+    body[data-color-mode] .rank-panel,
+    body[data-color-mode] .shop-panel,
+    body[data-color-mode] .player-card {
+      border-color: var(--line);
+      border-radius: 16px;
+      background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 96%, white 4%), var(--panel));
+      box-shadow: 0 12px 32px #244a5518;
+    }
+    body[data-color-mode] .hold-panel,
+    body[data-color-mode] .stat,
+    body[data-color-mode] .leaderboard-stat,
+    body[data-color-mode] .rank-card,
+    body[data-color-mode] .shop-item,
+    body[data-color-mode] .achievement-category,
+    body[data-color-mode] .achievement {
+      border-color: var(--line);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--panel) 90%, var(--bg));
+    }
+    body[data-color-mode] .achievement { opacity: .75; }
+    body[data-color-mode] .achievement.unlocked {
+      border-color: var(--green);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--green) 12%, var(--panel)), var(--panel));
+    }
+    body[data-color-mode] .achievement strong { color: var(--muted); }
+    body[data-color-mode] .achievement.unlocked strong,
+    body[data-color-mode] .rank-card.current strong { color: var(--green); }
+    body[data-color-mode] .rank-card.current { border-color: var(--green); box-shadow: inset 0 0 12px color-mix(in srgb, var(--green) 10%, transparent); }
+    body[data-color-mode] canvas { border-color: var(--line); background: var(--panel); }
+    body[data-color-mode] .overlay { background: color-mix(in srgb, var(--panel) 92%, transparent); }
+    body[data-color-mode] .action,
+    body[data-color-mode] .pad button {
+      border-color: var(--line);
+      border-radius: 9px;
+      color: var(--text);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 78%, white 22%), var(--panel));
+    }
+    body[data-color-mode] .action:hover,
+    body[data-color-mode] .pad button:hover { border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--panel)); }
+    body[data-color-mode] .action.primary,
+    body[data-color-mode] .pad .drop {
+      border-color: var(--green);
+      color: #fff;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--green) 78%, white 22%), var(--green));
+    }
+    body[data-color-mode="light"] .action.primary,
+    body[data-color-mode="light"] .pad .drop { color: #fff; }
+    body[data-color-mode] .utilities select,
+    body[data-color-mode] .utilities input[type="text"],
+    body[data-color-mode] .player-identity select,
+    body[data-color-mode] .key-help kbd {
+      border-color: var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel);
+    }
+    body[data-color-mode] .progress-track { border-color: var(--line); border-radius: 8px; background: var(--bg); }
+    body[data-color-mode] .progress-fill { background: linear-gradient(90deg, var(--green), var(--lime)); box-shadow: none; }
+    body[data-color-mode] .leaderboard th,
+    body[data-color-mode] .leaderboard td { border-color: var(--line); }
+    body[data-color-mode] .leaderboard tbody tr:first-child td { color: var(--green); }
+    body[data-color-mode] .player-banner { color: #fff; background: linear-gradient(100deg, #4a93a3, #73b5a2); }
+    body[data-color-mode] .toast { border-color: var(--line); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 12px 32px #244a5528; }
+    body[data-color-mode] .toast strong { color: var(--green); }
+    body[data-color-mode] footer { color: var(--muted); }
+    body[data-color-mode="light"] #eventText { color: #347d72; }
+    body[data-color-mode="dark"] #eventText { color: #a7d8ad; }
+    body[data-color-mode="light"][data-effects~="effect-matrix"] { background: linear-gradient(160deg, #dceff2, #edf5f1 52%, #e4f1ed); }
+    body[data-color-mode="dark"][data-effects~="effect-matrix"] { background: linear-gradient(160deg, #101d2a, #172c37 58%, #162d33); }
+  </style>
+</head>
+<body>
+  <canvas id="matrixBackground" aria-hidden="true"></canvas>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">A CLASSIC FALLING-BLOCK GAME</div>
+        <h1>TERRACK</h1>
+        <p class="subtitle">Stack clean. Think quick. Powered by a WebAssembly grid engine.</p>
+      </div>
+      <div class="header-meta">
+        <div>OPERATOR: <strong id="operatorTitle">PLAYER_01</strong></div>
+        <div>RECORD: <strong id="bestScore">000000</strong></div>
+      </div>
+    </header>
+
+    <section class="layout" aria-label="Game">
+      <div class="game-panel">
+        <div class="playfield-area">
+          <div class="left-rail">
+            <aside class="hold-panel" aria-label="Held block">
+              <h2 class="section-title">Held</h2>
+              <div class="hold-wrap"><canvas id="holdCanvas" width="100" height="80" aria-label="Held block preview"></canvas></div>
+              <span class="hold-label" id="holdLabel">EMPTY</span>
+            </aside>
+            <div class="stats" aria-live="polite">
+              <div class="stat"><span class="label">Score</span><strong id="score">0</strong></div>
+              <div class="stat"><span class="label">Lines</span><strong id="lines">0</strong></div>
+              <div class="stat"><span class="label">Level</span><strong id="level">1</strong></div>
+            </div>
+          </div>
+          <div class="board-wrap">
+            <canvas id="board" width="300" height="600" aria-label="Terrack game board"></canvas>
+            <div class="overlay" id="overlay">
+              <strong id="overlayTitle">READY?</strong>
+              <span id="overlayMessage">Clear lines. Build your rank. Press start when you're set.</span>
+            </div>
+          </div>
+        </div>
+        <div class="status-line"><span id="runStatus">SYSTEM STANDBY</span><span id="eventText" aria-live="polite"></span></div>
+        <div class="pad" aria-label="Touch controls">
+          <button data-action="left" aria-label="Move left">←</button>
+          <button data-action="rotate" aria-label="Rotate">↻</button>
+          <button data-action="right" aria-label="Move right">→</button>
+          <button data-action="down" aria-label="Soft drop">↓</button>
+          <button data-action="hold" aria-label="Hold piece">HOLD</button>
+          <button class="drop" data-action="drop" aria-label="Hard drop">DROP</button>
+        </div>
+      </div>
+
+      <aside class="side-panel">
+        <h2 class="section-title">Next block</h2>
+        <div class="next-wrap"><canvas id="nextCanvas" width="140" height="112" aria-label="Next block preview"></canvas></div>
+        <div class="progress-block">
+          <div class="progress-meta"><span>RANK <strong id="rank">ROOKIE</strong></span><strong id="xpText">0 XP</strong></div>
+          <div class="progress-track" role="progressbar" aria-label="Rank progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="xpProgress"><div class="progress-fill" id="xpFill"></div></div>
+          <div class="progress-meta" style="margin:7px 0 0"><span id="xpHint">Next rank: 100 XP</span><span id="totalLines">0 lifetime lines</span></div>
+        </div>
+        <div class="player-card">
+          <div class="player-banner" id="playerBanner">GRID STARTER</div>
+          <div class="player-identity">
+            <strong id="playerTitle">ROOKIE</strong>
+            <span>Operator profile</span>
+            <label class="showcase-label" for="showcaseSelect">Featured achievement</label>
+            <select id="showcaseSelect" aria-label="Featured achievement"></select>
+            <span class="showcase-badge" id="showcaseBadge">No achievement featured</span>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="action primary wide" id="startButton">Start run</button>
+          <button class="action" id="pauseButton">Pause</button>
+          <button class="action" id="restartButton">Restart</button>
+        </div>
+        <p class="key-help">
+          <kbd>←</kbd> <kbd>→</kbd> move &nbsp; <kbd>↑</kbd> rotate<br>
+          <kbd>↓</kbd> soft drop &nbsp; <kbd>Space</kbd> hard drop<br>
+          <kbd>C</kbd> hold &nbsp; <kbd>P</kbd> pause
+        </p>
+        <div class="utilities">
+          <label for="operatorNameInput">Operator name</label>
+          <input id="operatorNameInput" type="text" maxlength="20" autocomplete="nickname" aria-label="Custom operator name">
+          <label for="colorModeSelect">Appearance</label>
+          <select id="colorModeSelect">
+            <option value="light">Light · sea glass</option>
+            <option value="dark">Dark · deep water</option>
+          </select>
+          <label for="presetSelect">Visual preset</label>
+          <select id="presetSelect">
+            <option value="minimal">Minimal · clean</option>
+            <option value="arcade">Arcade · balanced</option>
+            <option value="deluxe">Deluxe · extra glow</option>
+          </select>
+          <button class="action" id="crtButton" aria-pressed="false">CRT effect: off</button>
+          <button class="action" id="recommendedButton">Use recommended</button>
+          <p class="recommendation" id="recommendationText" aria-live="polite"></p>
+          <button class="action" id="soundButton" aria-pressed="true">Sound: on</button>
+          <button class="action" id="exportButton">Export JSON</button>
+          <button class="action" id="importButton">Import JSON</button>
+          <button class="action danger wide" id="resetButton">Reset all progress</button>
+          <input class="file-input" id="importFile" type="file" accept=".json,application/json">
+        </div>
+      </aside>
+    </section>
+
+    <section class="rank-panel" aria-labelledby="rankTitle">
+      <div class="achievement-heading">
+        <h2 class="section-title" id="rankTitle">Rank progression</h2>
+        <span id="rankCount">8 ranks</span>
+      </div>
+      <div class="rank-list" id="rankList"></div>
+    </section>
+
+    <section class="shop-panel" aria-labelledby="shopTitle">
+      <div class="shop-heading">
+        <h2 class="section-title" id="shopTitle">Terrack shop</h2>
+        <strong id="scrapBalance">0 SCRAP</strong>
+      </div>
+      <p class="shop-note">Earn Scrap slowly by playing, clearing lines, and claiming achievements. Stack upgrades and open crates for rare payouts: Scrap, XP, or score for your next run.</p>
+      <div class="shop-actions">
+        <button class="action primary" id="crateButton">Open loot crate</button>
+        <span id="crateCost">Cost: 100 Scrap</span>
+      </div>
+      <p class="shop-note">Crate odds: 30% 30 Scrap, 22% 90, 18% 250, 12% 1,000, 8% 5,000, 4% 100 XP, 3% 1,000 XP, 2% 2,500 next-run score, 0.9% 25,000 Scrap, or 0.1% 100,000 Scrap. Scrap and XP upgrades apply to crate rewards.</p>
+      <div class="shop-items" id="shopItems"></div>
+    </section>
+
+    <section class="leaderboard" aria-labelledby="leaderboardTitle">
+      <div class="achievement-heading">
+        <h2 class="section-title" id="leaderboardTitle">Personal leaderboard</h2>
+        <span id="leaderboardCount">0 completed runs</span>
+      </div>
+      <div class="leaderboard-summary" aria-label="Personal records">
+        <div class="leaderboard-stat"><span>Best score</span><strong id="leaderboardBestScore">0</strong></div>
+        <div class="leaderboard-stat"><span>Most lines in a run</span><strong id="leaderboardBestLines">0</strong></div>
+        <div class="leaderboard-stat"><span>Lifetime lines</span><strong id="leaderboardTotalLines">0</strong></div>
+      </div>
+      <div class="leaderboard-table-wrap">
+        <table>
+          <thead><tr><th scope="col">Rank</th><th scope="col">Score</th><th scope="col">Lines</th><th scope="col">Level</th><th scope="col">Date</th></tr></thead>
+          <tbody id="leaderboardRows"></tbody>
+        </table>
+        <div class="leaderboard-empty" id="leaderboardEmpty">Finish a run to start your personal leaderboard.</div>
+      </div>
+    </section>
+
+    <section class="achievements" aria-labelledby="achievementTitle">
+      <div class="achievement-heading">
+        <h2 class="section-title" id="achievementTitle">Achievements</h2>
+        <span id="achievementCount">0 / 274 unlocked</span>
+      </div>
+      <div class="achievement-list" id="achievementList"></div>
+    </section>
+    <footer>Progress and records save on this device. No account, no timers—just one more run when you feel like it.</footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"><strong></strong><span></span></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const COLS = 10;
+      const ROWS = 20;
+      const CELL = 30;
+      const MAX_MATRIX_PIXELS = 2_000_000;
+      const WASM_BINARY = "AGFzbQEAAAABCwJgAn9/AX9gAAF/AwYFAAEBAQEEBQFwAQEBBQMBAAEGBwF/AUHwKQsHQwYGbWVtb3J5AgAEZml0cwAAC2NsZWFyX2xpbmVzAAEIaXNfZW1wdHkAAglib2FyZF9wdHIAAwpibG9ja3NfcHRyAAQK4AYFpQIBA39BACECAkBBACgCgIiAgAAgAGoiA0EJSw0AQQAoAoSIgIAAIAFqIgRBE0oNAEEAIQICQCAEQQBIDQAgBEEKbCADai0AoIiAgAANAQtBACgCiIiAgAAgAGoiA0EJSw0AQQAoAoyIgIAAIAFqIgRBE0oNAEEAIQICQCAEQQBIDQAgBEEKbCADai0AoIiAgAANAQtBACgCkIiAgAAgAGoiA0EJSw0AQQAoApSIgIAAIAFqIgRBE0oNAEEAIQICQCAEQQBIDQAgBEEKbCADai0AoIiAgAANAQtBACgCmIiAgAAgAGoiBEEJSw0AQQAoApyIgIAAIAFqIgBBE0oNAEEAIQICQCAAQQBIDQAgAEEKbCAEai0AoIiAgAANAQtBASECCyACC/QDAQZ/QRMhAEEAIQFBEyECQQAhAwNAAkACQCABQd6JgIAAai0AACIERQ0AIAFB34mAgABqLQAARQ0AIAFB4ImAgABqLQAARQ0AIAFB4YmAgABqLQAARQ0AIAFB4omAgABqLQAARQ0AIAFB44mAgABqLQAARQ0AIAFB5ImAgABqLQAARQ0AIAFB5YmAgABqLQAARQ0AIAFB5omAgABqLQAARQ0AIAFB54mAgABqLQAARQ0AIANBAWohAwwBCwJAIAIgAEYNACAAQQpsIgVBoIiAgABqIAQ6AAAgBUGhiICAAGogAUHfiYCAAGotAAA6AAAgBUGiiICAAGogAUHgiYCAAGotAAA6AAAgBUGjiICAAGogAUHhiYCAAGotAAA6AAAgBUGkiICAAGogAUHiiYCAAGotAAA6AAAgBUGliICAAGogAUHjiYCAAGotAAA6AAAgBUGmiICAAGogAUHkiYCAAGotAAA6AAAgBUGniICAAGogAUHliYCAAGotAAA6AAAgBUGoiICAAGogAUHmiYCAAGotAAA6AAAgBUGpiICAAGogAUHniYCAAGotAAA6AAALIABBf2ohAAsgAkF/aiECIAFBdmoiAUG4fkcNAAsCQCAAQQBIDQAgAEEKbEEKaiIBRQ0AQaCIgIAAQQAgAfwLAAsgAwsvAQN/Qbl+IQACQANAIAAiAUHniYCAAGotAAAiAg0BIAFBAWohACABDQALCyACRQsIAEGgiICAAAsIAEGAiICAAAs=";
+      const TYPES = ["I", "O", "T", "S", "Z", "J", "L"];
+      const COLORS = {
+        I: "#55e6e2", O: "#ffd166", T: "#c792ea", S: "#84ff9f",
+        Z: "#ff7185", J: "#70a7ff", L: "#ffad66"
+      };
+      const THEME_COLORS = {
+        amber: { I: "#61d9ca", O: "#ffe27a", T: "#ff9f70", S: "#a4ff87", Z: "#ff7185", J: "#91aaff", L: "#ffbd74" },
+        ocean: { I: "#47f0f3", O: "#ecdf70", T: "#9fc4ff", S: "#65e6ae", Z: "#ff8297", J: "#719eff", L: "#ffbe7a" },
+        violet: { I: "#71e5ff", O: "#ffe27a", T: "#e5a0ff", S: "#8dffbb", Z: "#ff719e", J: "#a99aff", L: "#ffb385" },
+        rose: { I: "#77e3df", O: "#ffe08a", T: "#ec9dff", S: "#9cffad", Z: "#ff668f", J: "#86aaff", L: "#ffb078" },
+        ember: { I: "#65e5d6", O: "#ffe08a", T: "#ffbd66", S: "#a8ec76", Z: "#ff5f55", J: "#8ab5ff", L: "#ff854f" },
+        matrix: { I: "#44e6dd", O: "#d8ff64", T: "#bdff75", S: "#65ff76", Z: "#ff7185", J: "#6deba8", L: "#a6ff60" },
+        ice: { I: "#68f0fa", O: "#e8f4a8", T: "#b1d5ff", S: "#95f7db", Z: "#ff9bb5", J: "#77aaff", L: "#a5eaff" },
+        sunset: { I: "#5fe4df", O: "#ffdd72", T: "#db9cff", S: "#9bfa9f", Z: "#ff6685", J: "#89aaff", L: "#ff9866" }
+      };
+      const SHAPES = {
+        I: [[0, 1], [1, 1], [2, 1], [3, 1]],
+        O: [[1, 0], [2, 0], [1, 1], [2, 1]],
+        T: [[1, 0], [0, 1], [1, 1], [2, 1]],
+        S: [[1, 0], [2, 0], [0, 1], [1, 1]],
+        Z: [[0, 0], [1, 0], [1, 1], [2, 1]],
+        J: [[0, 0], [0, 1], [1, 1], [2, 1]],
+        L: [[2, 0], [0, 1], [1, 1], [2, 1]]
+      };
+      const CORE_ACHIEVEMENTS = [
+        { id: "first-lock", name: "First Contact", desc: "Lock your first block.", xp: 25, test: s => s.pieces >= 1 },
+        { id: "first-line", name: "Clean Sweep", desc: "Clear your first line.", xp: 30, test: s => s.lines >= 1 },
+        { id: "three-lines", name: "Triple Threat", desc: "Clear 3 lines in one run.", xp: 50, test: s => s.lines >= 3 },
+        { id: "ten-lines", name: "Getting Organized", desc: "Clear 10 lines in one run.", xp: 40, test: s => s.lines >= 10 },
+        { id: "twenty-five-lines", name: "Grid Keeper", desc: "Clear 25 lifetime lines.", xp: 60, test: s => s.totalLines >= 25 },
+        { id: "fifty-lines", name: "Line Artisan", desc: "Clear 50 lifetime lines.", xp: 90, test: s => s.totalLines >= 50 },
+        { id: "hundred-lines", name: "Century Stack", desc: "Clear 100 lifetime lines.", xp: 150, test: s => s.totalLines >= 100 },
+        { id: "two-fifty-lines", name: "Grid Veteran", desc: "Clear 250 lifetime lines.", xp: 250, test: s => s.totalLines >= 250 },
+        { id: "five-hundred-lines", name: "Line Legend", desc: "Clear 500 lifetime lines.", xp: 500, test: s => s.totalLines >= 500 },
+        { id: "first-tetris", name: "Four on the Floor", desc: "Clear 4 lines at once.", xp: 75, test: s => s.tetrises >= 1 },
+        { id: "ten-tetrises", name: "Tetris Technician", desc: "Clear 10 Tetrises.", xp: 180, test: s => s.tetrises >= 10 },
+        { id: "twenty-five-tetrises", name: "Well-Oiled", desc: "Clear 25 Tetrises.", xp: 350, test: s => s.tetrises >= 25 },
+        { id: "level-five", name: "Picking Up Speed", desc: "Reach game level 5.", xp: 60, test: s => s.maxLevel >= 5 },
+        { id: "level-ten", name: "Full Tilt", desc: "Reach game level 10.", xp: 140, test: s => s.maxLevel >= 10 },
+        { id: "level-fifteen", name: "Overclocked", desc: "Reach game level 15.", xp: 260, test: s => s.maxLevel >= 15 },
+        { id: "combo-three", name: "Chain Reaction", desc: "Clear lines 3 drops in a row.", xp: 100, test: s => s.maxCombo >= 3 },
+        { id: "perfect-clear", name: "Blank Slate", desc: "Clear the entire board.", xp: 200, test: s => s.perfectClears >= 1 },
+        { id: "hundred-pieces", name: "Steady Hands", desc: "Lock 100 lifetime blocks.", xp: 100, test: s => s.totalPieces >= 100 },
+        { id: "ten-runs", name: "Back for More", desc: "Finish 10 runs.", xp: 120, test: s => s.runs >= 10 },
+        { id: "score-10000", name: "Five Digits", desc: "Score 10,000 points in one run.", xp: 150, test: s => s.bestScore >= 10000 }
+      ];
+      const MILESTONE_SERIES = [
+        {
+          id: "lines", name: "Line Collector", metric: "totalLines", label: "lifetime lines",
+          thresholds: [10, 25, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 25000]
+        },
+        {
+          id: "blocks", name: "Block Builder", metric: "totalPieces", label: "blocks locked",
+          thresholds: [25, 50, 100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 30000, 40000, 50000, 100000]
+        },
+        {
+          id: "tetrises", name: "Tetris Trailblazer", metric: "tetrises", label: "Tetrises",
+          thresholds: [1, 5, 10, 20, 30, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 10000]
+        },
+        {
+          id: "runs", name: "Arcade Regular", metric: "runs", label: "runs completed",
+          thresholds: [1, 5, 10, 20, 30, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 10000]
+        },
+        {
+          id: "score", name: "High Score Hunter", metric: "bestScore", label: "best-score points",
+          thresholds: [1000, 2500, 5000, 7500, 10000, 15000, 20000, 30000, 40000, 50000, 75000, 100000, 150000, 200000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000]
+        }
+      ];
+      const MILESTONE_EPITHETS = [
+        "Copper Comet", "Neon Cartographer", "Midnight Architect", "Prism Voyager", "Velocity Savant",
+        "Starlight Forger", "Quantum Keeper", "Obsidian Virtuoso", "Aurora Tactician", "Gravity Tamer",
+        "Nova Pathfinder", "Chrono Sculptor", "Celestial Engineer", "Eclipse Champion", "Infinite Navigator",
+        "Singularity Smith", "Cosmic Virtuoso", "Paragon of the Grid", "Beyond the Boundary", "Eternal Overdrive",
+        "The Last Pattern"
+      ];
+      const MILESTONE_ACHIEVEMENTS = MILESTONE_SERIES.flatMap(series =>
+        series.thresholds.map((threshold, index) => ({
+          id: `${series.id}-${threshold}`,
+          name: `${series.name}: ${MILESTONE_EPITHETS[index]}`,
+          desc: `Reach ${threshold.toLocaleString()} ${series.label}.`,
+          xp: Math.max(10, Math.round(15 + index * 2.5)),
+          test: stats => stats[series.metric] >= threshold
+        }))
+      );
+      const BRAG_ACHIEVEMENTS = [
+        { id: "lines-run-15", name: "Fifteen-Line Run", desc: "Clear 15 lines in one run.", xp: 180, test: s => s.bestRunLines >= 15 },
+        { id: "lines-run-20", name: "Twenty-Line Run", desc: "Clear 20 lines in one run.", xp: 250, test: s => s.bestRunLines >= 20 },
+        { id: "lines-run-30", name: "Thirty-Line Run", desc: "Clear 30 lines in one run.", xp: 400, test: s => s.bestRunLines >= 30 },
+        { id: "lines-run-40", name: "Forty-Line Run", desc: "Clear 40 lines in one run.", xp: 600, test: s => s.bestRunLines >= 40 },
+        { id: "lines-run-50", name: "The Half-Centurion", desc: "Clear 50 lines in one run.", xp: 900, test: s => s.bestRunLines >= 50 },
+        { id: "combo-5", name: "Combo Conductor", desc: "Clear lines 5 drops in a row.", xp: 150, test: s => s.maxCombo >= 5 },
+        { id: "combo-10", name: "Combo Virtuoso", desc: "Clear lines 10 drops in a row.", xp: 300, test: s => s.maxCombo >= 10 },
+        { id: "combo-15", name: "Unbroken Chain", desc: "Clear lines 15 drops in a row.", xp: 500, test: s => s.maxCombo >= 15 },
+        { id: "combo-20", name: "Combo Myth", desc: "Clear lines 20 drops in a row.", xp: 800, test: s => s.maxCombo >= 20 },
+        { id: "perfect-3", name: "Canvas Cleaner", desc: "Earn 3 perfect clears.", xp: 300, test: s => s.perfectClears >= 3 },
+        { id: "perfect-10", name: "The Empty Grid", desc: "Earn 10 perfect clears.", xp: 750, test: s => s.perfectClears >= 10 },
+        { id: "level-20", name: "Redline", desc: "Reach game level 20.", xp: 350, test: s => s.maxLevel >= 20 },
+        { id: "level-25", name: "Gravity Defier", desc: "Reach game level 25.", xp: 600, test: s => s.maxLevel >= 25 },
+        { id: "level-30", name: "Beyond the Limit", desc: "Reach game level 30.", xp: 1000, test: s => s.maxLevel >= 30 },
+        { id: "tetrises-club-50", name: "Tetris Artisan", desc: "Clear 50 Tetrises.", xp: 350, test: s => s.tetrises >= 50 },
+        { id: "tetrises-club-100", name: "Tetris Ace", desc: "Clear 100 Tetrises.", xp: 600, test: s => s.tetrises >= 100 },
+        { id: "tetrises-club-250", name: "Tetris Royalty", desc: "Clear 250 Tetrises.", xp: 1000, test: s => s.tetrises >= 250 },
+        { id: "tetrises-club-500", name: "Five Hundred Club", desc: "Clear 500 Tetrises.", xp: 1800, test: s => s.tetrises >= 500 },
+        { id: "pieces-250000", name: "Quarter-Million Blocks", desc: "Lock 250,000 lifetime blocks.", xp: 800, test: s => s.totalPieces >= 250000 },
+        { id: "pieces-500000", name: "Half-Million Blocks", desc: "Lock 500,000 lifetime blocks.", xp: 1500, test: s => s.totalPieces >= 500000 },
+        { id: "pieces-1000000", name: "Million-Block Machine", desc: "Lock 1,000,000 lifetime blocks.", xp: 3000, test: s => s.totalPieces >= 1000000 },
+        { id: "lines-50000", name: "Fifty-Thousand Lines", desc: "Clear 50,000 lifetime lines.", xp: 1200, test: s => s.totalLines >= 50000 },
+        { id: "lines-100000", name: "Hundred-Thousand Lines", desc: "Clear 100,000 lifetime lines.", xp: 2500, test: s => s.totalLines >= 100000 },
+        { id: "lines-500000", name: "The Great Eraser", desc: "Clear 500,000 lifetime lines.", xp: 6000, test: s => s.totalLines >= 500000 },
+        { id: "runs-25000", name: "Arcade Fixture", desc: "Finish 25,000 runs.", xp: 1500, test: s => s.runs >= 25000 },
+        { id: "runs-50000", name: "Arcade Immortal", desc: "Finish 50,000 runs.", xp: 3000, test: s => s.runs >= 50000 },
+        { id: "xp-10000", name: "Five-Figure Renown", desc: "Earn 10,000 lifetime XP.", xp: 500, test: s => s.xp >= 10000 },
+        { id: "xp-25000", name: "Quarter-Century Renown", desc: "Earn 25,000 lifetime XP.", xp: 1200, test: s => s.xp >= 25000 },
+        { id: "xp-50000", name: "Hall of Fame", desc: "Earn 50,000 lifetime XP.", xp: 2500, test: s => s.xp >= 50000 }
+      ];
+      const LONG_MILESTONE_SERIES = [
+        {
+          id: "single-run", name: "Run Record", metric: "bestRunLines", label: "lines in one run",
+          thresholds: [60, 75, 100, 125, 150, 200, 250, 300, 400, 500, 600, 750, 900, 1100, 1300, 1600, 2000, 2500, 3000, 5000]
+        },
+        {
+          id: "long-level", name: "Level Breaker", metric: "maxLevel", label: "highest level",
+          thresholds: [35, 40, 50, 60, 75, 100, 125, 150, 200, 250, 300, 400, 500, 650, 800, 1000, 1250, 1500, 2000, 2500]
+        },
+        {
+          id: "long-lines", name: "Lifetime Line Crown", metric: "totalLines", label: "lifetime lines",
+          thresholds: [750000, 1000000, 1500000, 2000000, 3000000, 5000000, 7500000, 10000000, 25000000, 50000000, 75000000, 100000000, 150000000, 200000000, 300000000, 500000000, 750000000, 1000000000, 2000000000, 5000000000]
+        },
+        {
+          id: "long-blocks", name: "Blockworld", metric: "totalPieces", label: "blocks locked",
+          thresholds: [150000, 250000, 500000, 750000, 1000000, 2000000, 5000000, 10000000, 25000000, 50000000, 75000000, 100000000, 150000000, 200000000, 300000000, 500000000, 750000000, 1000000000, 2000000000, 5000000000]
+        },
+        {
+          id: "long-runs", name: "Arcade Forever", metric: "runs", label: "runs completed",
+          thresholds: [75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000, 2500000, 5000000, 7500000, 10000000, 15000000, 20000000, 30000000, 50000000, 75000000, 100000000, 200000000, 500000000]
+        },
+        {
+          id: "long-xp", name: "Renown Ascendant", metric: "xp", label: "lifetime XP",
+          thresholds: [75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000, 2500000, 5000000, 7500000, 10000000, 15000000, 20000000, 30000000, 50000000, 75000000, 100000000, 200000000, 500000000]
+        }
+      ];
+      const LONG_MILESTONE_ACHIEVEMENTS = LONG_MILESTONE_SERIES.flatMap(series =>
+        series.thresholds.map((threshold, index) => ({
+          id: `${series.id}-${threshold}`,
+          name: `${series.name}: ${MILESTONE_EPITHETS[index]}`,
+          desc: `Reach ${threshold.toLocaleString()} ${series.label}.`,
+          xp: 300 + index * 200,
+          test: stats => stats[series.metric] >= threshold
+        }))
+      );
+      const ACHIEVEMENTS = [...CORE_ACHIEVEMENTS, ...MILESTONE_ACHIEVEMENTS, ...BRAG_ACHIEVEMENTS, ...LONG_MILESTONE_ACHIEVEMENTS];
+      const RANKS = [
+        { name: "ROOKIE", xp: 0 }, { name: "SCOUT", xp: 100 }, { name: "BUILDER", xp: 300 },
+        { name: "TACTICIAN", xp: 650 }, { name: "VETERAN", xp: 1100 }, { name: "ACE", xp: 1800 },
+        { name: "ARCHITECT", xp: 2800 }, { name: "LEGEND", xp: 4200 },
+        { name: "GRANDMASTER", xp: 7000 }, { name: "CYBER TITAN", xp: 12000 },
+        { name: "GRID EMPEROR", xp: 20000 }, { name: "ORBITAL ACE", xp: 35000 },
+        { name: "VOID WALKER", xp: 60000 }, { name: "NOVA SOVEREIGN", xp: 100000 },
+        { name: "COSMIC ARCHITECT", xp: 175000 }, { name: "ETERNAL LEGEND", xp: 300000 },
+        { name: "TRANSCENDENT", xp: 500000 }, { name: "TERRACK IMMORTAL", xp: 1000000 },
+        { name: "REALITY ENGINEER", xp: 2000000 }, { name: "STARFORGED", xp: 4000000 },
+        { name: "COSMIC OVERLORD", xp: 8000000 }, { name: "ETERNITY KEEPER", xp: 15000000 },
+        { name: "INFINITE SOVEREIGN", xp: 30000000 }, { name: "OMNIGRID", xp: 60000000 },
+        { name: "PARAGON PRIME", xp: 120000000 }, { name: "ASCENDANT ZERO", xp: 250000000 },
+        { name: "THE UNWRITTEN", xp: 500000000 }, { name: "TERRACK ETERNAL", xp: 1000000000 }
+      ];
+      const SHOP_ITEMS = [
+        { id: "theme-amber", type: "theme", value: "amber", name: "Amber CRT", description: "Warm phosphor palette for the whole arcade.", price: 900 },
+        { id: "theme-ocean", type: "theme", value: "ocean", name: "Deep Ocean", description: "Cool cyan accents and matching blocks.", price: 1200 },
+        { id: "theme-violet", type: "theme", value: "violet", name: "Violet Signal", description: "A bright purple terminal look.", price: 1600 },
+        { id: "theme-rose", type: "theme", value: "rose", name: "Rose Circuit", description: "A punchy pink-and-rose palette.", price: 1600 },
+        { id: "theme-ember", type: "theme", value: "ember", name: "Ember Core", description: "A fiery copper-and-red arcade palette.", price: 2000 },
+        { id: "theme-matrix", type: "theme", value: "matrix", name: "Matrix Rain", description: "A vivid green-on-black terminal.", price: 2200 },
+        { id: "theme-ice", type: "theme", value: "ice", name: "Cryo Chamber", description: "Icy blue highlights and crisp block colors.", price: 2600 },
+        { id: "theme-sunset", type: "theme", value: "sunset", name: "Last Light", description: "A warm dusk palette with electric accents.", price: 2800 },
+        { id: "effect-particles", type: "effect", value: "particles", name: "Spark Burst", description: "Tiny block-colored particles on line clears.", price: 1800 },
+        { id: "effect-cascade", type: "effect", value: "cascade", name: "Cascade Clear", description: "A brighter sweep effect when lines disappear.", price: 2400 },
+        { id: "effect-ghost", type: "effect", value: "ghost", name: "Prism Ghost", description: "Give the landing guide a bright outline.", price: 3000 },
+        { id: "effect-pulse", type: "effect", value: "pulse", name: "Pulse Wave", description: "A stronger screen pulse on line clears.", price: 3400 },
+        { id: "effect-confetti", type: "effect", value: "confetti", name: "Pixel Confetti", description: "More particles and a confetti-style burst on clears.", price: 4200 },
+        { id: "effect-matrix", type: "effect", value: "matrix", name: "Matrix Rain", description: "Toggle the animated, low-cost terminal rain behind the game.", price: 12000 },
+        { id: "banner-neon", type: "banner", value: "neon", name: "Neon Wave Banner", description: "A vivid gradient for your operator card.", price: 1200 },
+        { id: "banner-gold", type: "banner", value: "gold", name: "Gold Circuit Banner", description: "Show off a polished gold nameplate.", price: 1600 },
+        { id: "banner-glitch", type: "banner", value: "glitch", name: "Glitch Banner", description: "A noisy signal-strip banner.", price: 2000 },
+        { id: "banner-aurora", type: "banner", value: "aurora", name: "Aurora Banner", description: "A flowing green-blue operator banner.", price: 2600 },
+        { id: "banner-sunset", type: "banner", value: "sunset", name: "Sunset Banner", description: "A bold orange-to-magenta nameplate.", price: 3000 },
+        { id: "title-architect", type: "title", value: "GRID ARCHITECT", name: "Grid Architect Title", description: "Display your mastery of the board.", price: 1500 },
+        { id: "title-line-legend", type: "title", value: "LINE LEGEND", name: "Line Legend Title", description: "A title for a reliable line clearer.", price: 2000 },
+        { id: "title-ace", type: "title", value: "ARCADE ACE", name: "Arcade Ace Title", description: "Put your high-score energy on display.", price: 2500 },
+        { id: "title-overlord", type: "title", value: "GRID OVERLORD", name: "Grid Overlord Title", description: "A title worthy of a record-setting operator.", price: 3800 },
+        { id: "title-immortal", type: "title", value: "THE UNSTACKABLE", name: "Unstackable Title", description: "Brag that the grid never keeps you down.", price: 5000 },
+        { id: "upgrade-scrap", type: "upgrade", value: "scrap", name: "Scrap Scavenger", description: "Earn 10% more Scrap per level, up to 50%.", price: 5000 },
+        { id: "upgrade-xp", type: "upgrade", value: "xp", name: "Signal Amplifier", description: "Earn 10% more XP per level, up to 50%.", price: 7500 },
+        { id: "upgrade-score", type: "upgrade", value: "score", name: "Score Overdrive", description: "Earn 10% more run score per level, up to 50%.", price: 10000 }
+      ];
+      const SAVE_KEY = "terrack-profile-v1";
+      const SETTINGS_KEY = "terrack-settings-v1";
+      const DEVICE_COOKIE = "terrack-device-v1";
+      const VALID_PRESETS = ["minimal", "arcade", "deluxe"];
+
+      const $ = id => document.getElementById(id);
+      const boardCanvas = $("board");
+      const ctx = boardCanvas.getContext("2d");
+      const boardGrid = document.createElement("canvas");
+      boardGrid.width = boardCanvas.width;
+      boardGrid.height = boardCanvas.height;
+      const boardGridCtx = boardGrid.getContext("2d");
+      const nextCanvas = $("nextCanvas");
+      const nextCtx = nextCanvas.getContext("2d");
+      const holdCanvas = $("holdCanvas");
+      const holdCtx = holdCanvas.getContext("2d");
+      const matrixCanvas = $("matrixBackground");
+      const matrixCtx = matrixCanvas.getContext("2d");
+      const emptyProfile = () => ({
+        xp: 0, bestScore: 0, totalLines: 0, totalPieces: 0, tetrises: 0,
+        maxLevel: 1, maxCombo: 0, perfectClears: 0, runs: 0, bestRunLines: 0,
+        leaderboard: [], unlocked: [], scrap: 0, ownedItems: [], equippedEffects: [],
+        scrapRemainder: 0, upgradeLevels: { scrap: 0, xp: 0, score: 0 },
+        crateOpens: 0, scoreBonusPoints: 0,
+        showcaseAchievement: "",
+        equippedTheme: "default", equippedBanner: "plain", equippedTitle: "ROOKIE"
+      });
+
+      function normalizeProfile(saved) {
+        if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+          throw new Error("The file does not contain a Terrack progress profile.");
+        }
+        if (!Array.isArray(saved.unlocked)) {
+          throw new Error("The progress profile is missing its achievements list.");
+        }
+        const fresh = emptyProfile();
+        for (const key of Object.keys(fresh)) {
+          if (["unlocked", "leaderboard", "ownedItems", "equippedEffects", "upgradeLevels", "equippedTheme", "equippedBanner", "equippedTitle", "showcaseAchievement"].includes(key)) continue;
+          if (saved[key] === undefined) continue;
+          if (!Number.isSafeInteger(saved[key]) || saved[key] < 0) {
+            throw new Error(`The progress profile has an invalid value for ${key}.`);
+          }
+          fresh[key] = saved[key];
+        }
+        if (fresh.maxLevel < 1) throw new Error("The progress profile has an invalid maximum level.");
+        if (fresh.scrapRemainder > 99) throw new Error("The progress profile has an invalid Scrap bonus remainder.");
+        if (saved.upgradeLevels !== undefined) {
+          if (!saved.upgradeLevels || typeof saved.upgradeLevels !== "object" || Array.isArray(saved.upgradeLevels)
+            || Object.keys(saved.upgradeLevels).some(key => !["scrap", "xp", "score"].includes(key))) {
+            throw new Error("The progress profile has invalid upgrade levels.");
+          }
+          for (const key of ["scrap", "xp", "score"]) {
+            const level = saved.upgradeLevels[key] ?? 0;
+            if (!Number.isSafeInteger(level) || level < 0 || level > 5) {
+              throw new Error("The progress profile has invalid upgrade levels.");
+            }
+            fresh.upgradeLevels[key] = level;
+          }
+        }
+        if (saved.leaderboard !== undefined) {
+          if (!Array.isArray(saved.leaderboard)) throw new Error("The progress profile has an invalid leaderboard.");
+          fresh.leaderboard = saved.leaderboard.map(run => {
+            if (!run || typeof run !== "object" || Array.isArray(run)
+              || !Number.isSafeInteger(run.score) || run.score < 0
+              || !Number.isSafeInteger(run.lines) || run.lines < 0
+              || !Number.isSafeInteger(run.level) || run.level < 1
+              || typeof run.date !== "string" || Number.isNaN(Date.parse(run.date))) {
+              throw new Error("The progress profile contains an invalid leaderboard entry.");
+            }
+            return { score: run.score, lines: run.lines, level: run.level, date: run.date };
+          }).sort(compareRuns).slice(0, 10);
+        }
+        const shopIds = new Set(SHOP_ITEMS.map(item => item.id));
+        if (saved.ownedItems !== undefined) {
+          if (!Array.isArray(saved.ownedItems) || saved.ownedItems.some(id => typeof id !== "string" || !shopIds.has(id))) {
+            throw new Error("The progress profile contains an invalid shop inventory.");
+          }
+          fresh.ownedItems = [...new Set(saved.ownedItems)];
+        }
+        const isEquipped = (id, type, defaultValue) => {
+          if (id === defaultValue) return true;
+          const item = SHOP_ITEMS.find(candidate => candidate.id === id);
+          return Boolean(item && item.type === type && fresh.ownedItems.includes(id));
+        };
+        if (saved.equippedTheme !== undefined) {
+          if (!isEquipped(saved.equippedTheme === "default" ? "default" : `theme-${saved.equippedTheme}`, "theme", "default")) {
+            throw new Error("The progress profile has an unowned theme equipped.");
+          }
+          fresh.equippedTheme = saved.equippedTheme;
+        }
+        if (saved.equippedBanner !== undefined) {
+          if (!isEquipped(saved.equippedBanner === "plain" ? "plain" : `banner-${saved.equippedBanner}`, "banner", "plain")) {
+            throw new Error("The progress profile has an unowned banner equipped.");
+          }
+          fresh.equippedBanner = saved.equippedBanner;
+        }
+        if (saved.equippedTitle !== undefined) {
+          const title = SHOP_ITEMS.find(item => item.type === "title" && item.value === saved.equippedTitle);
+          if (saved.equippedTitle !== "ROOKIE" && (!title || !fresh.ownedItems.includes(title.id))) {
+            throw new Error("The progress profile has an unowned title equipped.");
+          }
+          fresh.equippedTitle = saved.equippedTitle;
+        }
+        if (saved.equippedEffects !== undefined) {
+          if (!Array.isArray(saved.equippedEffects) || saved.equippedEffects.some(id => {
+            const item = SHOP_ITEMS.find(candidate => candidate.id === id && candidate.type === "effect");
+            return !item || !fresh.ownedItems.includes(id);
+          })) {
+            throw new Error("The progress profile has an unowned visual effect equipped.");
+          }
+          fresh.equippedEffects = [...new Set(saved.equippedEffects)];
+        }
+        const knownIds = new Set(ACHIEVEMENTS.map(achievement => achievement.id));
+        if (saved.unlocked.some(id => typeof id !== "string" || !knownIds.has(id))) {
+          throw new Error("The progress profile contains an unknown achievement.");
+        }
+        fresh.unlocked = [...new Set(saved.unlocked)];
+        if (saved.showcaseAchievement !== undefined) {
+          if (typeof saved.showcaseAchievement !== "string"
+            || (saved.showcaseAchievement !== "" && !fresh.unlocked.includes(saved.showcaseAchievement))) {
+            throw new Error("The featured achievement must already be unlocked.");
+          }
+          fresh.showcaseAchievement = saved.showcaseAchievement;
+        }
+        return fresh;
+      }
+
+      function loadProfile() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+          if (!saved || typeof saved !== "object") return emptyProfile();
+          return normalizeProfile(saved);
+        } catch (error) {
+          console.warn("Terrack could not load its saved profile.", error);
+          return emptyProfile();
+        }
+      }
+
+      function getSystemRecommendation() {
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+        const mobile = navigator.userAgentData?.mobile ?? coarsePointer;
+        const cores = navigator.hardwareConcurrency || 0;
+        const memory = navigator.deviceMemory || 0;
+        const lowPower = (cores > 0 && cores <= 4) || (memory > 0 && memory <= 4);
+        const tier = reducedMotion ? "accessibility" : mobile ? "mobile" : lowPower ? "low-power" : "standard";
+        const recommendation = {
+          tier,
+          preset: tier === "standard" ? "arcade" : "minimal",
+          crt: false
+        };
+        const cookie = document.cookie.split("; ").find(value => value.startsWith(`${DEVICE_COOKIE}=`));
+        const cached = cookie?.slice(DEVICE_COOKIE.length + 1).split(".");
+        if (cached?.[0] === tier && VALID_PRESETS.includes(cached[1]) && cached[2] === "0") {
+          return { tier, preset: cached[1], crt: cached[2] === "1" };
+        }
+        return recommendation;
+      }
+
+      function saveDeviceRecommendation(recommendation) {
+        const value = `${recommendation.tier}.${recommendation.preset}.${recommendation.crt ? "1" : "0"}`;
+        const secure = location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `${DEVICE_COOKIE}=${encodeURIComponent(value)}; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
+        if (!document.cookie.split("; ").some(cookie => cookie.startsWith(`${DEVICE_COOKIE}=`))) {
+          console.warn("Terrack could not save the device recommendation cookie.");
+        }
+      }
+
+      const systemRecommendation = getSystemRecommendation();
+      saveDeviceRecommendation(systemRecommendation);
+
+      function loadSettings() {
+        const defaults = {
+          preset: systemRecommendation.preset,
+          colorMode: "light",
+          sound: true,
+          crt: systemRecommendation.crt,
+          operatorName: "PLAYER_01"
+        };
+        try {
+          const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+          return {
+            preset: saved && VALID_PRESETS.includes(saved.preset) ? saved.preset : defaults.preset,
+            colorMode: saved && ["light", "dark"].includes(saved.colorMode) ? saved.colorMode : defaults.colorMode,
+            sound: saved && typeof saved.sound === "boolean" ? saved.sound : defaults.sound,
+            crt: saved && typeof saved.crt === "boolean" ? saved.crt : defaults.crt,
+            operatorName: saved && typeof saved.operatorName === "string"
+              ? saved.operatorName.trim().replace(/\s+/g, " ").slice(0, 20) || defaults.operatorName
+              : defaults.operatorName
+          };
+        } catch (error) {
+          console.warn("Terrack could not load its settings.", error);
+          return defaults;
+        }
+      }
+
+      let profile = loadProfile();
+      const settings = loadSettings();
+      let audioContext = null;
+      let audioUnavailableNotified = false;
+      let wasmEngine = null;
+      let wasmBlocks = null;
+      let wasmEngineReady = false;
+      let board = new Uint8Array(COLS * ROWS);
+      let current = null;
+      let nextType = null;
+      let heldType = null;
+      let holdUsed = false;
+      let bag = [];
+      let score = 0;
+      let lines = 0;
+      let gameLevel = 1;
+      let combo = 0;
+      let runPieces = 0;
+      let running = false;
+      let paused = false;
+      let ended = false;
+      let dropElapsed = 0;
+      let lastFrame = 0;
+      let flashUntil = 0;
+      let flashWasActive = false;
+      let toastTimer = 0;
+      let particles = [];
+      let matrixDrops = [];
+      let matrixLastFrame = 0;
+      let matrixEnabled = false;
+      let loopScheduled = false;
+
+      function saveProfile() {
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(profile));
+          return true;
+        } catch (error) {
+          console.warn("Terrack could not save its profile.", error);
+          showToast("Save unavailable", "Browser storage is full or disabled; progress may not persist.");
+          return false;
+        }
+      }
+
+      function saveSettings() {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch (error) {
+          console.warn("Terrack could not save its settings.", error);
+          showToast("Settings not saved", "Browser storage is unavailable.");
+        }
+      }
+
+      function applyPreset() {
+        document.body.dataset.preset = settings.preset;
+        document.body.dataset.colorMode = settings.colorMode;
+        document.body.dataset.crt = settings.crt ? "on" : "off";
+        document.body.dataset.theme = profile.equippedTheme;
+        document.body.dataset.banner = profile.equippedBanner;
+        document.body.dataset.effects = profile.equippedEffects.join(" ");
+        $("presetSelect").value = settings.preset;
+        $("colorModeSelect").value = settings.colorMode;
+        document.querySelector('meta[name="theme-color"]').content =
+          settings.colorMode === "dark" ? "#101d2a" : "#e8f4f5";
+        $("operatorNameInput").value = settings.operatorName;
+        $("operatorTitle").textContent = settings.operatorName;
+        $("crtButton").textContent = `CRT effect: ${settings.crt ? "on" : "off"}`;
+        $("crtButton").setAttribute("aria-pressed", String(settings.crt));
+        const tierNames = {
+          accessibility: "reduced-motion system",
+          mobile: "mobile system",
+          "low-power": "lower-power system",
+          standard: "standard system"
+        };
+        $("recommendationText").textContent =
+          `Recommended for this ${tierNames[systemRecommendation.tier]}: ${systemRecommendation.preset} preset, CRT ${systemRecommendation.crt ? "on" : "off"}. A first-party cookie remembers this device category and recommendation; saved settings always take priority.`;
+        $("soundButton").textContent = `Sound: ${settings.sound ? "on" : "off"}`;
+        $("soundButton").setAttribute("aria-pressed", String(settings.sound));
+        syncMatrixBackground();
+        renderBoardGrid();
+        draw();
+        drawNext();
+        drawHeld();
+      }
+
+      function resizeMatrixBackground() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const ratio = Math.min(1, Math.sqrt(MAX_MATRIX_PIXELS / (width * height)));
+        matrixCanvas.width = Math.max(1, Math.floor(width * ratio));
+        matrixCanvas.height = Math.max(1, Math.floor(height * ratio));
+        matrixCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        matrixDrops = Array.from({ length: Math.ceil(window.innerWidth / 18) }, () =>
+          Math.floor(Math.random() * Math.max(1, window.innerHeight / 18))
+        );
+      }
+
+      function syncMatrixBackground() {
+        matrixEnabled = profile.equippedEffects.includes("effect-matrix")
+          && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        matrixCanvas.style.display = matrixEnabled ? "block" : "none";
+        if (matrixEnabled) resizeMatrixBackground();
+        else matrixCtx.clearRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        if (matrixEnabled) scheduleLoop();
+      }
+
+      function drawMatrixBackground(timestamp) {
+        if (!matrixEnabled || document.hidden || timestamp - matrixLastFrame < 48) return;
+        matrixLastFrame = timestamp;
+        matrixCtx.fillStyle = "rgba(3, 9, 7, 0.12)";
+        matrixCtx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        matrixCtx.fillStyle = "#6dff91";
+        matrixCtx.font = "14px monospace";
+        for (let column = 0; column < matrixDrops.length; column++) {
+          const glyph = String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96));
+          const y = matrixDrops[column] * 18;
+          matrixCtx.fillText(glyph, column * 18, y);
+          if (y > window.innerHeight && Math.random() > 0.975) matrixDrops[column] = 0;
+          else matrixDrops[column]++;
+        }
+      }
+
+      function colorFor(type) {
+        return (THEME_COLORS[profile.equippedTheme] || COLORS)[type];
+      }
+
+      function purchaseShopItem(itemId, action) {
+        const item = SHOP_ITEMS.find(candidate => candidate.id === itemId);
+        if (!item) return;
+        if (item.type === "upgrade") {
+          if (action !== "upgrade") return;
+          const level = profile.upgradeLevels[item.value];
+          const price = item.price * (level + 1);
+          if (level >= 5 || profile.scrap < price) return;
+          profile.scrap -= price;
+          profile.upgradeLevels[item.value]++;
+          showToast("Upgrade installed", `${item.name} is now level ${level + 1}/5.`);
+          updateProfileUI();
+          saveProfile();
+          return;
+        }
+        const owned = profile.ownedItems.includes(item.id);
+        if (action === "buy") {
+          if (owned || profile.scrap < item.price) return;
+          profile.scrap -= item.price;
+          profile.ownedItems.push(item.id);
+          if (item.type === "effect") {
+            profile.equippedEffects.push(item.id);
+          } else if (item.type === "theme") {
+            profile.equippedTheme = item.value;
+          } else if (item.type === "banner") {
+            profile.equippedBanner = item.value;
+          } else if (item.type === "title") {
+            profile.equippedTitle = item.value;
+          }
+          showToast("Upgrade unlocked", `${item.name} is yours.`);
+        } else if (!owned) {
+          return;
+        } else if (action === "toggle" && item.type === "effect") {
+          profile.equippedEffects = profile.equippedEffects.includes(item.id)
+            ? profile.equippedEffects.filter(id => id !== item.id)
+            : [...profile.equippedEffects, item.id];
+        } else if (action === "equip" && item.type === "theme") {
+          profile.equippedTheme = item.value;
+        } else if (action === "equip" && item.type === "banner") {
+          profile.equippedBanner = item.value;
+        } else if (action === "equip" && item.type === "title") {
+          profile.equippedTitle = item.value;
+        } else {
+          return;
+        }
+        applyPreset();
+        updateProfileUI();
+        saveProfile();
+      }
+
+      function updatePlayerCard() {
+        $("playerTitle").textContent = profile.equippedTitle;
+        $("operatorTitle").textContent = settings.operatorName;
+        const banners = { plain: "GRID STARTER", neon: "NEON SIGNAL", gold: "GOLD CIRCUIT", glitch: "SIGNAL CORRUPTION" };
+        $("playerBanner").textContent = banners[profile.equippedBanner] || banners.plain;
+        const select = $("showcaseSelect");
+        const selected = profile.showcaseAchievement;
+        select.textContent = "";
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = "Choose an unlocked achievement";
+        select.append(emptyOption);
+        const unlocked = ACHIEVEMENTS.filter(achievement => profile.unlocked.includes(achievement.id));
+        for (const achievement of unlocked) {
+          const option = document.createElement("option");
+          option.value = achievement.id;
+          option.textContent = achievement.name;
+          select.append(option);
+        }
+        select.value = selected;
+        const featured = ACHIEVEMENTS.find(achievement => achievement.id === selected);
+        $("showcaseBadge").textContent = featured
+          ? `★ ${featured.name} · +${featured.xp} XP`
+          : unlocked.length ? `${unlocked.length} achievements unlocked` : "No achievement featured";
+      }
+
+      function renderRankList() {
+        const list = $("rankList");
+        list.textContent = "";
+        const current = getRank().name;
+        $("rankCount").textContent = `${RANKS.length} ranks · current: ${current}`;
+        for (const [index, rank] of RANKS.entries()) {
+          const card = document.createElement("article");
+          const isCurrent = current === rank.name;
+          card.className = `rank-card${isCurrent ? " current" : ""}`;
+          const name = document.createElement("strong");
+          name.textContent = `${index + 1}. ${rank.name}${isCurrent ? " · YOU" : ""}`;
+          const requiredXP = document.createElement("span");
+          requiredXP.textContent = rank.xp === 0 ? "Starting rank" : `${rank.xp.toLocaleString()} XP`;
+          card.append(name, requiredXP);
+          list.append(card);
+        }
+      }
+
+      function updateShopSummary() {
+        $("scrapBalance").textContent = `${profile.scrap.toLocaleString()} SCRAP`;
+        const crateCost = lootCrateCost();
+        $("crateButton").disabled = profile.scrap < crateCost;
+        $("crateCost").textContent = `Cost: ${crateCost.toLocaleString()} Scrap · opened ${profile.crateOpens} · next-run bonus: ${profile.scoreBonusPoints.toLocaleString()}`;
+      }
+
+      function updateShopItemAvailability() {
+        for (const [index, item] of SHOP_ITEMS.entries()) {
+          const button = $("shopItems").children[index].querySelector("button");
+          if (item.type === "upgrade") {
+            const level = profile.upgradeLevels[item.value];
+            button.disabled = level >= 5 || profile.scrap < item.price * (level + 1);
+          } else if (!profile.ownedItems.includes(item.id)) {
+            button.disabled = profile.scrap < item.price;
+          }
+        }
+      }
+
+      function renderShop() {
+        updateShopSummary();
+        const list = $("shopItems");
+        list.textContent = "";
+        for (const item of SHOP_ITEMS) {
+          const card = document.createElement("article");
+          card.className = "shop-item";
+          const name = document.createElement("strong");
+          name.textContent = item.name;
+          const description = document.createElement("p");
+          description.textContent = item.description;
+          const button = document.createElement("button");
+          button.className = "action";
+          button.dataset.shopId = item.id;
+          const owned = profile.ownedItems.includes(item.id);
+          if (item.type === "upgrade") {
+            const level = profile.upgradeLevels[item.value];
+            const price = item.price * (level + 1);
+            button.dataset.shopAction = "upgrade";
+            button.textContent = level >= 5 ? `Max level · ${level}/5` : `Level ${level}/5 · ${price.toLocaleString()} Scrap`;
+            button.disabled = level >= 5 || profile.scrap < price;
+            description.textContent = `${item.description} Current level: ${level}/5.`;
+            card.append(name, description, button);
+            list.append(card);
+            continue;
+          }
+          const equipped = item.type === "theme" ? profile.equippedTheme === item.value
+            : item.type === "banner" ? profile.equippedBanner === item.value
+            : item.type === "title" ? profile.equippedTitle === item.value
+            : profile.equippedEffects.includes(item.id);
+          if (!owned) {
+            button.dataset.shopAction = "buy";
+            button.textContent = `Buy · ${item.price} scrap`;
+            button.disabled = profile.scrap < item.price;
+          } else {
+            button.dataset.shopAction = item.type === "effect" ? "toggle" : "equip";
+            button.textContent = item.type === "effect"
+              ? equipped ? "Disable effect" : "Enable effect"
+              : equipped ? "Equipped" : "Equip";
+            button.disabled = item.type !== "effect" && equipped;
+          }
+          card.append(name, description, button);
+          list.append(card);
+        }
+      }
+
+      function createClearParticles(cleared) {
+        const hasParticles = profile.equippedEffects.includes("effect-particles");
+        const hasConfetti = profile.equippedEffects.includes("effect-confetti");
+        if (!hasParticles && !hasConfetti) return;
+        const count = Math.min(hasConfetti ? 120 : 72, cleared * (hasConfetti ? 30 : 18));
+        for (let i = 0; i < count; i++) {
+          const type = TYPES[Math.floor(Math.random() * TYPES.length)];
+          particles.push({
+            x: Math.random() * boardCanvas.width,
+            y: (ROWS - 1 - Math.random() * Math.min(ROWS, cleared + 4)) * CELL,
+            vx: (Math.random() - 0.5) * 4,
+            vy: -Math.random() * 4 - 1,
+            life: 35 + Math.random() * 30,
+            maxLife: 65,
+            size: hasConfetti ? 3 + Math.random() * 4 : 2 + Math.random() * 3,
+            color: hasConfetti ? `hsl(${Math.floor(Math.random() * 360)} 90% 65%)` : colorFor(type),
+            rotation: Math.random() * Math.PI
+          });
+        }
+      }
+
+      function updateParticles(elapsed) {
+        const frames = elapsed / 16.67;
+        let alive = 0;
+        for (const particle of particles) {
+          particle.x += particle.vx * frames;
+          particle.y += particle.vy * frames;
+          particle.vy += 0.12 * frames;
+          particle.life -= frames;
+          if (particle.life > 0) particles[alive++] = particle;
+        }
+        particles.length = alive;
+      }
+
+      function playSound(effect) {
+        if (!settings.sound) return;
+        try {
+          const AudioContextType = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextType) throw new Error("Web Audio is not supported in this browser.");
+          audioContext ||= new AudioContextType();
+          if (audioContext.state === "suspended") {
+            audioContext.resume().catch(error => console.warn("Terrack could not resume audio.", error));
+          }
+          const patterns = {
+            move: [[220, 0.035, "sine"]],
+            rotate: [[390, 0.055, "triangle"]],
+            lock: [[150, 0.065, "square"]],
+            drop: [[110, 0.11, "triangle"]],
+            clear: [[440, 0.09, "sine"], [660, 0.13, "sine"]],
+            tetris: [[440, 0.08, "triangle"], [660, 0.08, "triangle"], [880, 0.2, "sine"]],
+            achievement: [[587, 0.08, "sine"], [784, 0.11, "sine"], [988, 0.16, "sine"]],
+            crate: [[330, 0.07, "triangle"], [494, 0.07, "triangle"], [740, 0.15, "sine"]],
+            gameover: [[240, 0.12, "triangle"], [180, 0.2, "triangle"]]
+          };
+          const now = audioContext.currentTime;
+          for (const [index, [frequency, duration, type]] of (patterns[effect] || []).entries()) {
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const start = now + index * 0.085;
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.08, start + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start(start);
+            oscillator.stop(start + duration);
+          }
+        } catch (error) {
+          console.warn("Terrack could not play a sound effect.", error);
+          settings.sound = false;
+          applyPreset();
+          saveSettings();
+          if (!audioUnavailableNotified) {
+            showToast("Sound unavailable", "Sound effects were turned off in this browser.");
+            audioUnavailableNotified = true;
+          }
+        }
+      }
+
+      function formatScore(value) {
+        return Math.floor(value).toString().padStart(6, "0");
+      }
+
+      function compareRuns(a, b) {
+        return b.score - a.score || b.lines - a.lines || b.level - a.level || b.date.localeCompare(a.date);
+      }
+
+      function renderLeaderboard(renderRows = true) {
+        const rows = $("leaderboardRows");
+        $("leaderboardCount").textContent = `${profile.runs} completed ${profile.runs === 1 ? "run" : "runs"}`;
+        $("leaderboardBestScore").textContent = profile.bestScore.toLocaleString();
+        $("leaderboardBestLines").textContent = profile.bestRunLines.toLocaleString();
+        $("leaderboardTotalLines").textContent = profile.totalLines.toLocaleString();
+        $("leaderboardEmpty").hidden = profile.leaderboard.length > 0;
+        if (!renderRows) return;
+        rows.textContent = "";
+        for (const [index, run] of profile.leaderboard.entries()) {
+          const row = document.createElement("tr");
+          const values = [
+            `#${index + 1}`,
+            run.score.toLocaleString(),
+            run.lines.toLocaleString(),
+            String(run.level),
+            new Date(run.date).toLocaleDateString()
+          ];
+          for (const value of values) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          }
+          rows.append(row);
+        }
+      }
+
+      function getRank() {
+        let rank = RANKS[0];
+        for (const candidate of RANKS) {
+          if (profile.xp >= candidate.xp) rank = candidate;
+          else break;
+        }
+        return rank;
+      }
+
+      function updateProfileUI({ refreshCollections = true } = {}) {
+        $("bestScore").textContent = formatScore(profile.bestScore);
+        $("rank").textContent = getRank().name;
+        $("xpText").textContent = `${profile.xp} XP`;
+        $("totalLines").textContent = `${profile.totalLines} lifetime lines`;
+        const index = RANKS.findIndex(rank => rank.name === getRank().name);
+        const nextRank = RANKS[index + 1];
+        const currentRank = RANKS[index];
+        const progress = nextRank
+          ? Math.round((profile.xp - currentRank.xp) / (nextRank.xp - currentRank.xp) * 100)
+          : 100;
+        $("xpFill").style.width = `${progress}%`;
+        $("xpProgress").setAttribute("aria-valuenow", String(progress));
+        $("xpHint").textContent = nextRank ? `Next rank: ${nextRank.xp} XP` : "Top rank reached";
+        $("achievementCount").textContent = `${profile.unlocked.length} / ${ACHIEVEMENTS.length} unlocked`;
+        if (refreshCollections) {
+          updatePlayerCard();
+          renderRankList();
+          renderShop();
+          renderLeaderboard();
+        } else {
+          updateShopSummary();
+          updateShopItemAvailability();
+          renderLeaderboard(false);
+        }
+      }
+
+      function renderAchievements() {
+        const categories = [
+          { id: "lines", title: "Line clears & Tetrises" },
+          { id: "blocks", title: "Block milestones" },
+          { id: "runs", title: "Run milestones" },
+          { id: "scores", title: "High scores" },
+          { id: "mastery", title: "Levels, combos & perfect clears" },
+          { id: "progression", title: "Lifetime XP & prestige" }
+        ];
+        const categoryFor = id => {
+          if (id.startsWith("perfect-") || id === "perfect-clear") return "mastery";
+          if (id.startsWith("single-run-")) return "lines";
+          if (id.startsWith("lines-") || id.startsWith("tetrises-") || id.includes("tetris") || id.includes("line")) return "lines";
+          if (id.startsWith("blocks-") || id.startsWith("long-blocks-") || id.includes("pieces") || id === "first-lock") return "blocks";
+          if (id.startsWith("runs-") || id.startsWith("long-runs-") || id === "ten-runs") return "runs";
+          if (id.startsWith("score-")) return "scores";
+          if (id.startsWith("xp-") || id.startsWith("long-xp-")) return "progression";
+          if (id.startsWith("level-") || id.startsWith("long-level-") || id.startsWith("combo-")) return "mastery";
+          return "starter";
+        };
+        const list = $("achievementList");
+        list.textContent = "";
+        const unlockedIds = new Set(profile.unlocked);
+        for (const category of categories) {
+          const achievements = ACHIEVEMENTS.filter(item => categoryFor(item.id) === category.id);
+          if (achievements.length === 0) continue;
+          const details = document.createElement("details");
+          details.className = "achievement-category";
+          const summary = document.createElement("summary");
+          const unlocked = achievements.filter(item => unlockedIds.has(item.id)).length;
+          summary.textContent = category.title;
+          const count = document.createElement("span");
+          count.textContent = `${unlocked} / ${achievements.length}`;
+          summary.append(count);
+          const items = document.createElement("ul");
+          items.className = "achievement-list";
+          details.addEventListener("toggle", () => {
+            if (!details.open) {
+              items.textContent = "";
+              return;
+            }
+            for (const achievement of achievements) {
+              const card = document.createElement("li");
+              card.className = `achievement${unlockedIds.has(achievement.id) ? " unlocked" : ""}`;
+              const title = document.createElement("strong");
+              title.textContent = achievement.name;
+              const description = document.createElement("span");
+              description.textContent = `${achievement.desc} +${achievement.xp} XP · +${achievementScrap(achievement)} Scrap`;
+              card.append(title, description);
+              items.append(card);
+            }
+          });
+          details.append(summary, items);
+          list.append(details);
+        }
+      }
+
+      function achievementScrap(achievement) {
+        return achievement.scrap ?? Math.max(1, Math.floor(achievement.xp / 40));
+      }
+
+      function scrapMultiplier() {
+        return 1 + profile.upgradeLevels.scrap * 0.1;
+      }
+
+      function xpMultiplier() {
+        return 1 + profile.upgradeLevels.xp * 0.1;
+      }
+
+      function scoreMultiplier() {
+        return 1 + profile.upgradeLevels.score * 0.1;
+      }
+
+      function earnScrap(baseAmount) {
+        if (baseAmount <= 0) return 0;
+        const scaledAmount = baseAmount * (100 + profile.upgradeLevels.scrap * 10) + profile.scrapRemainder;
+        const earned = Math.floor(scaledAmount / 100);
+        profile.scrapRemainder = scaledAmount % 100;
+        profile.scrap += earned;
+        return earned;
+      }
+
+      function lootCrateCost() {
+        return 150 + Math.min(profile.crateOpens, 40) * 250;
+      }
+
+      function openLootCrate() {
+        const cost = lootCrateCost();
+        if (profile.scrap < cost) return;
+        const crateButton = $("crateButton");
+        crateButton.classList.remove("crate-opening");
+        void crateButton.offsetWidth;
+        crateButton.classList.add("crate-opening");
+        profile.scrap -= cost;
+        profile.crateOpens++;
+        const roll = Math.random() * 100;
+        let rewardText;
+        if (roll < 30) {
+          const reward = earnScrap(30);
+          rewardText = `${reward.toLocaleString()} Scrap`;
+        } else if (roll < 52) {
+          const reward = earnScrap(90);
+          rewardText = `${reward.toLocaleString()} Scrap`;
+        } else if (roll < 70) {
+          const reward = earnScrap(250);
+          rewardText = `${reward.toLocaleString()} Scrap`;
+        } else if (roll < 82) {
+          const reward = earnScrap(1000);
+          rewardText = `${reward.toLocaleString()} Scrap`;
+        } else if (roll < 90) {
+          const reward = earnScrap(5000);
+          rewardText = `${reward.toLocaleString()} Scrap`;
+        } else if (roll < 94) {
+          awardXP(100, "Loot crate reward");
+          rewardText = "100 XP";
+        } else if (roll < 97) {
+          awardXP(1000, "Loot crate reward");
+          rewardText = "1,000 XP";
+        } else if (roll < 99) {
+          profile.scoreBonusPoints += 2500;
+          rewardText = "2,500 bonus score for your next run";
+        } else if (roll < 99.9) {
+          const reward = earnScrap(25000);
+          rewardText = `${reward.toLocaleString()} Scrap · RARE CACHE`;
+        } else {
+          const reward = earnScrap(100000);
+          rewardText = `${reward.toLocaleString()} Scrap · JACKPOT`;
+        }
+        const achievementsChanged = checkAchievements();
+        updateProfileUI({ refreshCollections: achievementsChanged });
+        saveProfile();
+        playSound("crate");
+        showToast("CRATE OPENED", rewardText);
+      }
+
+      function showToast(title, message) {
+        const toast = $("toast");
+        toast.querySelector("strong").textContent = title;
+        toast.querySelector("span").textContent = message;
+        toast.classList.add("show");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2800);
+      }
+
+      function awardXP(amount, reason) {
+        if (amount <= 0) return;
+        const earned = Math.floor(amount * xpMultiplier());
+        const oldRank = getRank().name;
+        profile.xp += earned;
+        const newRank = getRank().name;
+        if (newRank !== oldRank) renderRankList();
+        showToast(newRank !== oldRank ? `RANK UP: ${newRank}` : `+${earned} XP`, reason);
+      }
+
+      function checkAchievements() {
+        let gained = 0;
+        let unlockedThisCheck;
+        do {
+          unlockedThisCheck = 0;
+          for (const achievement of ACHIEVEMENTS) {
+            if (!profile.unlocked.includes(achievement.id) && achievement.test({
+              pieces: runPieces, lines, totalLines: profile.totalLines,
+              tetrises: profile.tetrises, maxLevel: profile.maxLevel, maxCombo: profile.maxCombo,
+              perfectClears: profile.perfectClears, totalPieces: profile.totalPieces,
+              runs: profile.runs, bestScore: profile.bestScore, bestRunLines: profile.bestRunLines, xp: profile.xp
+            })) {
+            const rewardXP = Math.floor(achievement.xp * xpMultiplier());
+            const rewardScrap = earnScrap(achievementScrap(achievement));
+            profile.unlocked.push(achievement.id);
+            gained += rewardXP;
+            profile.xp += rewardXP;
+              unlockedThisCheck++;
+            showToast(`ACHIEVEMENT: ${achievement.name}`, `+${rewardXP} XP · +${rewardScrap} Scrap · ${achievement.desc}`);
+              playSound("achievement");
+            }
+          }
+        } while (unlockedThisCheck > 0);
+        if (gained > 0) renderAchievements();
+        return gained > 0;
+      }
+
+      function refillBag() {
+        bag = TYPES.slice();
+        for (let i = bag.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [bag[i], bag[j]] = [bag[j], bag[i]];
+        }
+      }
+
+      function takeFromBag() {
+        if (bag.length === 0) refillBag();
+        return bag.pop();
+      }
+
+      function piece(type) {
+        return { type, blocks: SHAPES[type].map(([x, y]) => [x, y]), x: 3, y: -1 };
+      }
+
+      function fits(candidate, dx = 0, dy = 0, blocks = candidate.blocks) {
+        if (!wasmEngineReady) return false;
+        for (let i = 0; i < blocks.length; i++) {
+          wasmBlocks[i * 2] = blocks[i][0];
+          wasmBlocks[i * 2 + 1] = blocks[i][1];
+        }
+        return wasmEngine.fits(candidate.x + dx, candidate.y + dy) !== 0;
+      }
+
+      function rotated(blocks, direction = 1) {
+        const rotatedBlocks = blocks.map(([x, y]) => direction > 0 ? [3 - y, x] : [y, 3 - x]);
+        const minX = Math.min(...rotatedBlocks.map(([x]) => x));
+        const minY = Math.min(...rotatedBlocks.map(([, y]) => y));
+        return rotatedBlocks.map(([x, y]) => [x - minX, y - minY]);
+      }
+
+      function rotate() {
+        if (!running || paused || !current) return;
+        const blocks = rotated(current.blocks);
+        for (const kick of [0, -1, 1, -2, 2]) {
+          if (fits(current, kick, 0, blocks)) {
+            current.x += kick;
+            current.blocks = blocks;
+            draw();
+            playSound("rotate");
+            return;
+          }
+        }
+      }
+
+      function spawn() {
+        current = piece(nextType);
+        nextType = takeFromBag();
+        holdUsed = false;
+        drawNext();
+        if (!fits(current)) endGame();
+      }
+
+      function startGame() {
+        if (!wasmEngineReady) return;
+        board.fill(0);
+        score = profile.scoreBonusPoints;
+        profile.scoreBonusPoints = 0;
+        lines = 0;
+        gameLevel = 1;
+        combo = 0;
+        runPieces = 0;
+        heldType = null;
+        holdUsed = false;
+        bag = [];
+        particles = [];
+        nextType = takeFromBag();
+        running = true;
+        paused = false;
+        ended = false;
+        dropElapsed = 0;
+        $("overlay").hidden = true;
+        $("runStatus").textContent = "SYSTEM ONLINE";
+        $("startButton").textContent = "New run";
+        updateStats();
+        updateProfileUI();
+        saveProfile();
+        spawn();
+        drawHeld();
+        draw();
+        playSound("rotate");
+        scheduleLoop();
+      }
+
+      function endGame() {
+        if (ended) return;
+        running = false;
+        ended = true;
+        paused = false;
+        profile.runs++;
+        earnScrap(5);
+        if (score > profile.bestScore) profile.bestScore = score;
+        profile.bestRunLines = Math.max(profile.bestRunLines, lines);
+        profile.leaderboard.push({ score, lines, level: gameLevel, date: new Date().toISOString() });
+        profile.leaderboard.sort(compareRuns);
+        profile.leaderboard = profile.leaderboard.slice(0, 10);
+        checkAchievements();
+        saveProfile();
+        updateProfileUI();
+        $("overlayTitle").textContent = "GRID LOCKED";
+        $("overlayMessage").textContent = `Run complete · ${score.toLocaleString()} points · ${lines} lines`;
+        $("overlay").hidden = false;
+        $("runStatus").textContent = "RUN COMPLETE";
+        $("startButton").textContent = "Play again";
+        playSound("gameover");
+        draw();
+      }
+
+      function updateStats() {
+        $("score").textContent = score.toLocaleString();
+        $("lines").textContent = String(lines);
+        $("level").textContent = String(gameLevel);
+      }
+
+      function move(dx, dy = 0) {
+        if (!running || paused || !current || !fits(current, dx, dy)) return false;
+        current.x += dx;
+        current.y += dy;
+        draw();
+        return true;
+      }
+
+      function hardDrop() {
+        if (!running || paused || !current) return;
+        let distance = 0;
+        while (fits(current, 0, 1)) {
+          current.y++;
+          distance++;
+        }
+        if (distance > 0) {
+          score += Math.floor(distance * 2 * scoreMultiplier());
+          updateStats();
+        }
+        playSound("drop");
+        lockPiece();
+      }
+
+      function hold() {
+        if (!running || paused || !current || holdUsed) return;
+        const outgoing = current.type;
+        if (heldType) {
+          current = piece(heldType);
+          heldType = outgoing;
+          if (!fits(current)) endGame();
+        } else {
+          heldType = outgoing;
+          spawn();
+        }
+        holdUsed = true;
+        drawHeld();
+        draw();
+      }
+
+      function lockPiece() {
+        let toppedOut = false;
+        for (const [bx, by] of current.blocks) {
+          const x = current.x + bx;
+          const y = current.y + by;
+          if (y < 0) toppedOut = true;
+          else board[y * COLS + x] = TYPES.indexOf(current.type) + 1;
+        }
+        if (toppedOut) {
+          endGame();
+          return;
+        }
+
+        playSound("lock");
+        runPieces++;
+        profile.totalPieces++;
+        earnScrap(1);
+        combo++;
+        profile.maxCombo = Math.max(profile.maxCombo, combo);
+        const cleared = clearLines();
+        if (cleared) {
+          const basePoints = [0, 100, 300, 500, 800][cleared] * gameLevel;
+          const rawPoints = basePoints + (combo > 1 ? (combo - 1) * 50 * gameLevel : 0);
+          const points = Math.floor(rawPoints * scoreMultiplier());
+          score += points;
+          lines += cleared;
+          profile.totalLines += cleared;
+          earnScrap(cleared * 2);
+          if (cleared === 4) profile.tetrises++;
+          flashUntil = performance.now() + (profile.equippedEffects.includes("effect-cascade") ? 280 : 140);
+          createClearParticles(cleared);
+          $("eventText").textContent = cleared === 4 ? "TETRACK!" : `${cleared} LINE${cleared === 1 ? "" : "S"} CLEAR`;
+          window.setTimeout(() => { $("eventText").textContent = ""; }, 950);
+          playSound(cleared === 4 ? "tetris" : "clear");
+          const newLevel = Math.floor(lines / 10) + 1;
+          if (newLevel > gameLevel) {
+            gameLevel = newLevel;
+            profile.maxLevel = Math.max(profile.maxLevel, gameLevel);
+            showToast(`LEVEL ${gameLevel}`, "Gravity increased. Keep your stack tidy.");
+          }
+          awardXP(rawPoints, `${cleared} line${cleared === 1 ? "" : "s"} cleared`);
+        } else {
+          combo = 0;
+        }
+
+        if (wasmEngine.is_empty()) profile.perfectClears++;
+        if (score > profile.bestScore) profile.bestScore = score;
+        updateStats();
+        const achievementsChanged = checkAchievements();
+        saveProfile();
+        updateProfileUI({ refreshCollections: achievementsChanged });
+        spawn();
+        draw();
+      }
+
+      function clearLines() {
+        return wasmEngine.clear_lines();
+      }
+
+      function drawCell(context, x, y, size, color, ghost = false) {
+        const minimal = settings.preset === "minimal";
+        const deluxe = settings.preset === "deluxe";
+        const inset = minimal ? Math.max(1, size * 0.045) : Math.max(1, size * 0.07);
+        context.globalAlpha = ghost ? 0.24 : 1;
+        if (deluxe && !ghost) {
+          context.shadowColor = color;
+          context.shadowBlur = 7;
+        }
+        context.fillStyle = color;
+        context.fillRect(x * size + inset, y * size + inset, size - inset * 2, size - inset * 2);
+        context.shadowBlur = 0;
+        if (!ghost && !minimal) {
+          context.fillStyle = "#ffffff2b";
+          context.fillRect(x * size + inset, y * size + inset, size - inset * 2, Math.max(2, size * 0.1));
+          context.fillStyle = "#00000024";
+          context.fillRect(x * size + inset, y * size + size - inset - Math.max(2, size * 0.1), size - inset * 2, Math.max(2, size * 0.1));
+          if (deluxe) {
+            context.strokeStyle = "#ffffff55";
+            context.lineWidth = 1;
+            context.strokeRect(x * size + inset + .5, y * size + inset + .5, size - inset * 2 - 1, size - inset * 2 - 1);
+          }
+        }
+        if (ghost && profile.equippedEffects.includes("effect-ghost")) {
+          context.globalAlpha = 0.8;
+          context.strokeStyle = color;
+          context.lineWidth = Math.max(1, size * 0.08);
+          context.strokeRect(x * size + inset + .5, y * size + inset + .5, size - inset * 2 - 1, size - inset * 2 - 1);
+        }
+        context.globalAlpha = 1;
+      }
+
+      function drawGrid(context, width, height, cellSize) {
+        const dark = settings.colorMode === "dark";
+        context.fillStyle = dark ? "#132632" : "#edf6f5";
+        context.fillRect(0, 0, width, height);
+        context.strokeStyle = dark
+          ? (settings.preset === "deluxe" ? "#3d6572" : "#2a4652")
+          : (settings.preset === "deluxe" ? "#bfdcda" : "#d2e5e3");
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let x = 0; x <= width; x += cellSize) {
+          context.moveTo(x + .5, 0);
+          context.lineTo(x + .5, height);
+        }
+        for (let y = 0; y <= height; y += cellSize) {
+          context.moveTo(0, y + .5);
+          context.lineTo(width, y + .5);
+        }
+        context.stroke();
+      }
+
+      function renderBoardGrid() {
+        drawGrid(boardGridCtx, boardGrid.width, boardGrid.height, CELL);
+      }
+
+      function draw() {
+        ctx.drawImage(boardGrid, 0, 0);
+        for (let i = 0; i < board.length; i++) {
+          if (board[i]) drawCell(ctx, i % COLS, Math.floor(i / COLS), CELL, colorFor(TYPES[board[i] - 1]));
+        }
+        if (current) {
+          let ghostY = current.y;
+          while (fits(current, 0, ghostY - current.y + 1)) ghostY++;
+          for (const [bx, by] of current.blocks) {
+            const y = current.y + by;
+            if (y >= 0) drawCell(ctx, current.x + bx, y, CELL, colorFor(current.type), true);
+            const gy = ghostY + by;
+            if (gy >= 0 && gy !== y) drawCell(ctx, current.x + bx, gy, CELL, colorFor(current.type), true);
+          }
+          for (const [bx, by] of current.blocks) {
+            const y = current.y + by;
+            if (y >= 0) drawCell(ctx, current.x + bx, y, CELL, colorFor(current.type));
+          }
+        }
+        if (performance.now() < flashUntil) {
+          ctx.fillStyle = profile.equippedEffects.includes("effect-pulse") ? "#ffffff66"
+            : profile.equippedEffects.includes("effect-cascade") ? "#c8ff7566" : "#c8ff7533";
+          ctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
+        }
+        for (const particle of particles) {
+          ctx.globalAlpha = Math.min(1, particle.life / particle.maxLife);
+          ctx.fillStyle = particle.color;
+          if (profile.equippedEffects.includes("effect-confetti")) {
+            ctx.save();
+            ctx.translate(particle.x, particle.y);
+            ctx.rotate(particle.rotation);
+            ctx.fillRect(0, 0, particle.size, particle.size * 0.6);
+            ctx.restore();
+          } else {
+            ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+          }
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawNext() {
+        nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+        drawGrid(nextCtx, nextCanvas.width, nextCanvas.height, 20);
+        if (!nextType) return;
+        for (const [x, y] of SHAPES[nextType]) drawCell(nextCtx, x + 1, y + 1, 20, colorFor(nextType));
+      }
+
+      function drawHeld() {
+        holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
+        drawGrid(holdCtx, holdCanvas.width, holdCanvas.height, 20);
+        $("holdLabel").textContent = heldType ? heldType : "EMPTY";
+        if (!heldType) return;
+        const blocks = SHAPES[heldType];
+        const minX = Math.min(...blocks.map(([x]) => x));
+        const maxX = Math.max(...blocks.map(([x]) => x));
+        const minY = Math.min(...blocks.map(([, y]) => y));
+        const maxY = Math.max(...blocks.map(([, y]) => y));
+        const offsetX = (holdCanvas.width / 20 - (maxX - minX + 1)) / 2 - minX;
+        const offsetY = (holdCanvas.height / 20 - (maxY - minY + 1)) / 2 - minY;
+        for (const [x, y] of blocks) {
+          drawCell(holdCtx, x + offsetX, y + offsetY, 20, colorFor(heldType));
+        }
+      }
+
+      function togglePause() {
+        if (!running || ended) return;
+        paused = !paused;
+        $("runStatus").textContent = paused ? "SYSTEM PAUSED" : "SYSTEM ONLINE";
+        $("overlayTitle").textContent = "PAUSED";
+        $("overlayMessage").textContent = "Take your time. Press P or resume when ready.";
+        $("overlay").hidden = !paused;
+        if (!paused) scheduleLoop();
+      }
+
+      function clearCurrentRun() {
+        running = false;
+        paused = false;
+        ended = false;
+        board.fill(0);
+        current = null;
+        nextType = null;
+        heldType = null;
+        score = 0;
+        lines = 0;
+        gameLevel = 1;
+        combo = 0;
+        runPieces = 0;
+        dropElapsed = 0;
+        $("overlayTitle").textContent = "READY?";
+        $("overlayMessage").textContent = "Clear lines. Build your rank.<br>Press start when you're set.";
+        $("overlay").hidden = false;
+        $("runStatus").textContent = "SYSTEM STANDBY";
+        $("eventText").textContent = "";
+        $("startButton").textContent = "Start run";
+        updateStats();
+        drawNext();
+        drawHeld();
+        draw();
+      }
+
+      function resetProgress() {
+        if (!window.confirm("Reset all Terrack progress on this device? This cannot be undone unless you exported a backup.")) return;
+        profile = emptyProfile();
+        clearCurrentRun();
+        applyPreset();
+        updateProfileUI();
+        renderAchievements();
+        const saved = saveProfile();
+        showToast(saved ? "Progress reset" : "Progress reset temporarily", saved
+          ? "Your records, XP, and achievements have been cleared."
+          : "Browser storage is unavailable; the reset may not persist after reload.");
+      }
+
+      function exportProgress() {
+        let url;
+        try {
+          const backup = {
+            app: "Terrack",
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            profile
+          };
+          const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+          url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `terrack-progress-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showToast("Progress exported", "Your JSON backup is ready to save.");
+        } catch (error) {
+          if (url) URL.revokeObjectURL(url);
+          console.error("Terrack could not export progress.", error);
+          showToast("Export failed", "The browser could not create your progress backup.");
+        }
+      }
+
+      async function importProgress(file) {
+        if (!file) return;
+        if (file.size > 1024 * 1024) {
+          showToast("Import failed", "Progress files must be smaller than 1 MB.");
+          return;
+        }
+        try {
+          const parsed = JSON.parse(await file.text());
+          let candidate = parsed;
+          if (parsed && typeof parsed === "object" && "app" in parsed) {
+            if (parsed.app !== "Terrack" || parsed.version !== 1) {
+              throw new Error("This backup is not a supported Terrack progress file.");
+            }
+            candidate = parsed.profile;
+          }
+          const imported = normalizeProfile(candidate);
+          if (!window.confirm("Import this Terrack progress? It will replace the progress currently on this device.")) return;
+          profile = imported;
+          clearCurrentRun();
+          applyPreset();
+          updateProfileUI();
+          renderAchievements();
+          const saved = saveProfile();
+          showToast(saved ? "Progress imported" : "Progress imported temporarily", saved
+            ? "Your records, XP, and achievements are ready."
+            : "Browser storage is unavailable; imported progress may not persist after reload.");
+        } catch (error) {
+          console.warn("Terrack could not import progress.", error);
+          showToast("Import failed", error instanceof SyntaxError ? "That file is not valid JSON." : error.message);
+        }
+      }
+
+      function scheduleLoop() {
+        if (loopScheduled || document.hidden) return;
+        loopScheduled = true;
+        requestAnimationFrame(loop);
+      }
+
+      function loop(timestamp) {
+        loopScheduled = false;
+        const elapsed = Math.min(timestamp - (lastFrame || timestamp), 100);
+        lastFrame = timestamp;
+        drawMatrixBackground(timestamp);
+        if (running && !paused) {
+          dropElapsed += elapsed;
+          const interval = Math.max(85, 800 * Math.pow(0.82, gameLevel - 1));
+          if (dropElapsed >= interval) {
+            dropElapsed %= interval;
+            if (!move(0, 1)) lockPiece();
+          }
+        }
+        const particlesActive = particles.length > 0;
+        if (particlesActive) updateParticles(elapsed);
+        const flashActive = timestamp < flashUntil;
+        if (flashActive || flashWasActive || particlesActive || particles.length > 0) draw();
+        flashWasActive = flashActive;
+        if ((running && !paused) || matrixEnabled || flashActive || particlesActive || particles.length > 0) {
+          scheduleLoop();
+        }
+      }
+
+      function handleAction(action) {
+        switch (action) {
+          case "left": if (move(-1)) playSound("move"); break;
+          case "right": if (move(1)) playSound("move"); break;
+          case "down":
+            if (move(0, 1)) { score++; updateStats(); playSound("move"); }
+            else if (running && !paused) lockPiece();
+            break;
+          case "rotate": rotate(); break;
+          case "drop": hardDrop(); break;
+          case "hold": hold(); break;
+        }
+      }
+
+      document.addEventListener("keydown", event => {
+        const keys = ["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "c", "C", "p", "P"];
+        if (keys.includes(event.key)) event.preventDefault();
+        if (event.repeat && ["ArrowUp", " ", "c", "C", "p", "P"].includes(event.key)) return;
+        switch (event.key) {
+          case "ArrowLeft": handleAction("left"); break;
+          case "ArrowRight": handleAction("right"); break;
+          case "ArrowDown": handleAction("down"); break;
+          case "ArrowUp": handleAction("rotate"); break;
+          case " ": handleAction("drop"); break;
+          case "c": case "C": handleAction("hold"); break;
+          case "p": case "P": togglePause(); break;
+        }
+      });
+      $("startButton").addEventListener("click", startGame);
+      $("pauseButton").addEventListener("click", togglePause);
+      $("restartButton").addEventListener("click", startGame);
+      $("presetSelect").addEventListener("change", event => {
+        settings.preset = VALID_PRESETS.includes(event.target.value) ? event.target.value : "arcade";
+        applyPreset();
+        saveSettings();
+      });
+      $("colorModeSelect").addEventListener("change", event => {
+        settings.colorMode = event.target.value === "dark" ? "dark" : "light";
+        applyPreset();
+        saveSettings();
+      });
+      $("operatorNameInput").addEventListener("change", event => {
+        const name = event.target.value.trim().replace(/\s+/g, " ").slice(0, 20);
+        settings.operatorName = name || "PLAYER_01";
+        applyPreset();
+        saveSettings();
+      });
+      $("crtButton").addEventListener("click", () => {
+        settings.crt = !settings.crt;
+        applyPreset();
+        saveSettings();
+      });
+      $("recommendedButton").addEventListener("click", () => {
+        settings.preset = systemRecommendation.preset;
+        settings.crt = systemRecommendation.crt;
+        applyPreset();
+        saveSettings();
+      });
+      $("soundButton").addEventListener("click", () => {
+        settings.sound = !settings.sound;
+        applyPreset();
+        saveSettings();
+        if (settings.sound) playSound("achievement");
+      });
+      $("exportButton").addEventListener("click", exportProgress);
+      $("importButton").addEventListener("click", () => $("importFile").click());
+      $("importFile").addEventListener("change", async event => {
+        const [file] = event.target.files;
+        try {
+          await importProgress(file);
+        } finally {
+          event.target.value = "";
+        }
+      });
+      $("resetButton").addEventListener("click", resetProgress);
+      $("showcaseSelect").addEventListener("change", event => {
+        profile.showcaseAchievement = event.target.value;
+        updatePlayerCard();
+        saveProfile();
+      });
+      $("shopItems").addEventListener("click", event => {
+        const button = event.target.closest("button[data-shop-id]");
+        if (button) purchaseShopItem(button.dataset.shopId, button.dataset.shopAction);
+      });
+      $("crateButton").addEventListener("click", openLootCrate);
+      window.addEventListener("resize", () => {
+        if (matrixEnabled) resizeMatrixBackground();
+      });
+      document.querySelectorAll(".pad button").forEach(button => {
+        button.addEventListener("click", () => handleAction(button.dataset.action));
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && running && !paused) togglePause();
+        else if (!document.hidden && (matrixEnabled || particles.length || performance.now() < flashUntil)) scheduleLoop();
+      });
+
+      async function initializeWasmEngine() {
+        try {
+          const bytes = Uint8Array.from(atob(WASM_BINARY), character => character.charCodeAt(0));
+          const { instance } = await WebAssembly.instantiate(bytes);
+          wasmEngine = instance.exports;
+          if (!(wasmEngine.memory instanceof WebAssembly.Memory)
+            || typeof wasmEngine.fits !== "function"
+            || typeof wasmEngine.clear_lines !== "function"
+            || typeof wasmEngine.is_empty !== "function"
+            || typeof wasmEngine.board_ptr !== "function"
+            || typeof wasmEngine.blocks_ptr !== "function") {
+            throw new Error("The embedded WebAssembly module is missing required exports.");
+          }
+          board = new Uint8Array(wasmEngine.memory.buffer, wasmEngine.board_ptr(), COLS * ROWS);
+          wasmBlocks = new Int32Array(wasmEngine.memory.buffer, wasmEngine.blocks_ptr(), 8);
+          wasmEngineReady = true;
+          applyPreset();
+          updateProfileUI();
+          renderAchievements();
+          drawNext();
+          draw();
+          scheduleLoop();
+        } catch (error) {
+          console.error("Terrack could not initialize its WebAssembly game engine.", error);
+          $("runStatus").textContent = "WASM ENGINE UNAVAILABLE";
+          $("overlayTitle").textContent = "ENGINE ERROR";
+          $("overlayMessage").textContent = "This browser could not initialize WebAssembly. Please use a current browser.";
+          $("overlay").hidden = false;
+          $("startButton").disabled = true;
+        }
+      }
+
+      initializeWasmEngine();
+    })();
+  </script>
+</body>
+</html>
