@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07100e">
-  <title>Terrack — terminal blocks</title>
+  <title>Terrack — falling blocks</title>
   <style>
     :root {
       color-scheme: dark;
@@ -418,6 +418,114 @@
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
       #crateButton.crate-opening, #crateButton.crate-opening::after { animation: none; }
     }
+    body[data-color-mode="light"] {
+      color-scheme: light;
+      --bg: #e8f4f5;
+      --panel: #f7fbfa;
+      --line: #b8d5d9;
+      --muted: #58777e;
+      --text: #203d46;
+      --amber: #94632c;
+      --red: #ad4751;
+      background:
+        radial-gradient(ellipse at 50% -20%, #ffffff 0, transparent 62%),
+        linear-gradient(160deg, #dceff2, #edf5f1 52%, #e4f1ed);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body[data-color-mode="dark"] {
+      color-scheme: dark;
+      --bg: #101d2a;
+      --panel: #172a37;
+      --line: #345362;
+      --muted: #a4bbc2;
+      --text: #e4f1ef;
+      --amber: #edc77a;
+      --red: #f18b91;
+      background:
+        radial-gradient(ellipse at 50% -24%, #31566a 0, transparent 62%),
+        linear-gradient(160deg, #101d2a, #172c37 58%, #162d33);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body[data-color-mode="light"][data-theme="default"] { --green: #287c91; --lime: #347d72; }
+    body[data-color-mode="dark"][data-theme="default"] { --green: #82c9d2; --lime: #a7d8ad; }
+    body[data-color-mode] h1 {
+      color: var(--green);
+      letter-spacing: .025em;
+      text-shadow: none;
+    }
+    body[data-color-mode] .game-panel,
+    body[data-color-mode] .side-panel,
+    body[data-color-mode] .achievements,
+    body[data-color-mode] .leaderboard,
+    body[data-color-mode] .rank-panel,
+    body[data-color-mode] .shop-panel,
+    body[data-color-mode] .player-card {
+      border-color: var(--line);
+      border-radius: 16px;
+      background: linear-gradient(145deg, color-mix(in srgb, var(--panel) 96%, white 4%), var(--panel));
+      box-shadow: 0 12px 32px #244a5518;
+    }
+    body[data-color-mode] .hold-panel,
+    body[data-color-mode] .stat,
+    body[data-color-mode] .leaderboard-stat,
+    body[data-color-mode] .rank-card,
+    body[data-color-mode] .shop-item,
+    body[data-color-mode] .achievement-category,
+    body[data-color-mode] .achievement {
+      border-color: var(--line);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--panel) 90%, var(--bg));
+    }
+    body[data-color-mode] .achievement { opacity: .75; }
+    body[data-color-mode] .achievement.unlocked {
+      border-color: var(--green);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--green) 12%, var(--panel)), var(--panel));
+    }
+    body[data-color-mode] .achievement strong { color: var(--muted); }
+    body[data-color-mode] .achievement.unlocked strong,
+    body[data-color-mode] .rank-card.current strong { color: var(--green); }
+    body[data-color-mode] .rank-card.current { border-color: var(--green); box-shadow: inset 0 0 12px color-mix(in srgb, var(--green) 10%, transparent); }
+    body[data-color-mode] canvas { border-color: var(--line); background: var(--panel); }
+    body[data-color-mode] .overlay { background: color-mix(in srgb, var(--panel) 92%, transparent); }
+    body[data-color-mode] .action,
+    body[data-color-mode] .pad button {
+      border-color: var(--line);
+      border-radius: 9px;
+      color: var(--text);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 78%, white 22%), var(--panel));
+    }
+    body[data-color-mode] .action:hover,
+    body[data-color-mode] .pad button:hover { border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--panel)); }
+    body[data-color-mode] .action.primary,
+    body[data-color-mode] .pad .drop {
+      border-color: var(--green);
+      color: #fff;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--green) 78%, white 22%), var(--green));
+    }
+    body[data-color-mode="light"] .action.primary,
+    body[data-color-mode="light"] .pad .drop { color: #fff; }
+    body[data-color-mode] .utilities select,
+    body[data-color-mode] .utilities input[type="text"],
+    body[data-color-mode] .player-identity select,
+    body[data-color-mode] .key-help kbd {
+      border-color: var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel);
+    }
+    body[data-color-mode] .progress-track { border-color: var(--line); border-radius: 8px; background: var(--bg); }
+    body[data-color-mode] .progress-fill { background: linear-gradient(90deg, var(--green), var(--lime)); box-shadow: none; }
+    body[data-color-mode] .leaderboard th,
+    body[data-color-mode] .leaderboard td { border-color: var(--line); }
+    body[data-color-mode] .leaderboard tbody tr:first-child td { color: var(--green); }
+    body[data-color-mode] .player-banner { color: #fff; background: linear-gradient(100deg, #4a93a3, #73b5a2); }
+    body[data-color-mode] .toast { border-color: var(--line); border-radius: 12px; color: var(--text); background: var(--panel); box-shadow: 0 12px 32px #244a5528; }
+    body[data-color-mode] .toast strong { color: var(--green); }
+    body[data-color-mode] footer { color: var(--muted); }
+    body[data-color-mode="light"] #eventText { color: #347d72; }
+    body[data-color-mode="dark"] #eventText { color: #a7d8ad; }
+    body[data-color-mode="light"][data-effects~="effect-matrix"] { background: linear-gradient(160deg, #dceff2, #edf5f1 52%, #e4f1ed); }
+    body[data-color-mode="dark"][data-effects~="effect-matrix"] { background: linear-gradient(160deg, #101d2a, #172c37 58%, #162d33); }
   </style>
 </head>
 <body>
@@ -425,7 +533,7 @@
   <main class="shell">
     <header>
       <div>
-        <div class="eyebrow">[ VERSION 7 ]</div>
+        <div class="eyebrow">A CLASSIC FALLING-BLOCK GAME</div>
         <h1>TERRACK</h1>
         <p class="subtitle">Stack clean. Think quick. Keep the grid alive.</p>
       </div>
@@ -500,6 +608,11 @@
         <div class="utilities">
           <label for="operatorNameInput">Operator name</label>
           <input id="operatorNameInput" type="text" maxlength="20" autocomplete="nickname" aria-label="Custom operator name">
+          <label for="colorModeSelect">Appearance</label>
+          <select id="colorModeSelect">
+            <option value="light">Light · sea glass</option>
+            <option value="dark">Dark · deep water</option>
+          </select>
           <label for="presetSelect">Visual preset</label>
           <select id="presetSelect">
             <option value="minimal">Minimal · clean</option>
@@ -577,6 +690,7 @@
       const COLS = 10;
       const ROWS = 20;
       const CELL = 30;
+      const MAX_MATRIX_PIXELS = 2_000_000;
       const TYPES = ["I", "O", "T", "S", "Z", "J", "L"];
       const COLORS = {
         I: "#55e6e2", O: "#ffd166", T: "#c792ea", S: "#84ff9f",
@@ -780,6 +894,10 @@
       const $ = id => document.getElementById(id);
       const boardCanvas = $("board");
       const ctx = boardCanvas.getContext("2d");
+      const boardGrid = document.createElement("canvas");
+      boardGrid.width = boardCanvas.width;
+      boardGrid.height = boardCanvas.height;
+      const boardGridCtx = boardGrid.getContext("2d");
       const nextCanvas = $("nextCanvas");
       const nextCtx = nextCanvas.getContext("2d");
       const holdCanvas = $("holdCanvas");
@@ -917,11 +1035,11 @@
         const recommendation = {
           tier,
           preset: tier === "standard" ? "arcade" : "minimal",
-          crt: tier === "standard"
+          crt: false
         };
         const cookie = document.cookie.split("; ").find(value => value.startsWith(`${DEVICE_COOKIE}=`));
         const cached = cookie?.slice(DEVICE_COOKIE.length + 1).split(".");
-        if (cached?.[0] === tier && VALID_PRESETS.includes(cached[1]) && ["0", "1"].includes(cached[2])) {
+        if (cached?.[0] === tier && VALID_PRESETS.includes(cached[1]) && cached[2] === "0") {
           return { tier, preset: cached[1], crt: cached[2] === "1" };
         }
         return recommendation;
@@ -942,6 +1060,7 @@
       function loadSettings() {
         const defaults = {
           preset: systemRecommendation.preset,
+          colorMode: "light",
           sound: true,
           crt: systemRecommendation.crt,
           operatorName: "PLAYER_01"
@@ -950,6 +1069,7 @@
           const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
           return {
             preset: saved && VALID_PRESETS.includes(saved.preset) ? saved.preset : defaults.preset,
+            colorMode: saved && ["light", "dark"].includes(saved.colorMode) ? saved.colorMode : defaults.colorMode,
             sound: saved && typeof saved.sound === "boolean" ? saved.sound : defaults.sound,
             crt: saved && typeof saved.crt === "boolean" ? saved.crt : defaults.crt,
             operatorName: saved && typeof saved.operatorName === "string"
@@ -1015,11 +1135,15 @@
 
       function applyPreset() {
         document.body.dataset.preset = settings.preset;
+        document.body.dataset.colorMode = settings.colorMode;
         document.body.dataset.crt = settings.crt ? "on" : "off";
         document.body.dataset.theme = profile.equippedTheme;
         document.body.dataset.banner = profile.equippedBanner;
         document.body.dataset.effects = profile.equippedEffects.join(" ");
         $("presetSelect").value = settings.preset;
+        $("colorModeSelect").value = settings.colorMode;
+        document.querySelector('meta[name="theme-color"]').content =
+          settings.colorMode === "dark" ? "#101d2a" : "#e8f4f5";
         $("operatorNameInput").value = settings.operatorName;
         $("operatorTitle").textContent = settings.operatorName;
         $("crtButton").textContent = `CRT effect: ${settings.crt ? "on" : "off"}`;
@@ -1035,15 +1159,18 @@
         $("soundButton").textContent = `Sound: ${settings.sound ? "on" : "off"}`;
         $("soundButton").setAttribute("aria-pressed", String(settings.sound));
         syncMatrixBackground();
+        renderBoardGrid();
         draw();
         drawNext();
         drawHeld();
       }
 
       function resizeMatrixBackground() {
-        const ratio = Math.min(window.devicePixelRatio || 1, 1);
-        matrixCanvas.width = Math.ceil(window.innerWidth * ratio);
-        matrixCanvas.height = Math.ceil(window.innerHeight * ratio);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const ratio = Math.min(1, Math.sqrt(MAX_MATRIX_PIXELS / (width * height)));
+        matrixCanvas.width = Math.max(1, Math.floor(width * ratio));
+        matrixCanvas.height = Math.max(1, Math.floor(height * ratio));
         matrixCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
         matrixDrops = Array.from({ length: Math.ceil(window.innerWidth / 18) }, () =>
           Math.floor(Math.random() * Math.max(1, window.innerHeight / 18))
@@ -1060,7 +1187,7 @@
       }
 
       function drawMatrixBackground(timestamp) {
-        if (!matrixEnabled || timestamp - matrixLastFrame < 48) return;
+        if (!matrixEnabled || document.hidden || timestamp - matrixLastFrame < 48) return;
         matrixLastFrame = timestamp;
         matrixCtx.fillStyle = "rgba(3, 9, 7, 0.12)";
         matrixCtx.fillRect(0, 0, window.innerWidth, window.innerHeight);
@@ -1173,11 +1300,27 @@
         }
       }
 
-      function renderShop() {
+      function updateShopSummary() {
         $("scrapBalance").textContent = `${profile.scrap.toLocaleString()} SCRAP`;
         const crateCost = lootCrateCost();
         $("crateButton").disabled = profile.scrap < crateCost;
         $("crateCost").textContent = `Cost: ${crateCost.toLocaleString()} Scrap · opened ${profile.crateOpens} · next-run bonus: ${profile.scoreBonusPoints.toLocaleString()}`;
+      }
+
+      function updateShopItemAvailability() {
+        for (const [index, item] of SHOP_ITEMS.entries()) {
+          const button = $("shopItems").children[index].querySelector("button");
+          if (item.type === "upgrade") {
+            const level = profile.upgradeLevels[item.value];
+            button.disabled = level >= 5 || profile.scrap < item.price * (level + 1);
+          } else if (!profile.ownedItems.includes(item.id)) {
+            button.disabled = profile.scrap < item.price;
+          }
+        }
+      }
+
+      function renderShop() {
+        updateShopSummary();
         const list = $("shopItems");
         list.textContent = "";
         for (const item of SHOP_ITEMS) {
@@ -1245,13 +1388,15 @@
 
       function updateParticles(elapsed) {
         const frames = elapsed / 16.67;
+        let alive = 0;
         for (const particle of particles) {
           particle.x += particle.vx * frames;
           particle.y += particle.vy * frames;
           particle.vy += 0.12 * frames;
           particle.life -= frames;
+          if (particle.life > 0) particles[alive++] = particle;
         }
-        particles = particles.filter(particle => particle.life > 0);
+        particles.length = alive;
       }
 
       function playSound(effect) {
@@ -1309,14 +1454,15 @@
         return b.score - a.score || b.lines - a.lines || b.level - a.level || b.date.localeCompare(a.date);
       }
 
-      function renderLeaderboard() {
+      function renderLeaderboard(renderRows = true) {
         const rows = $("leaderboardRows");
-        rows.textContent = "";
         $("leaderboardCount").textContent = `${profile.runs} completed ${profile.runs === 1 ? "run" : "runs"}`;
         $("leaderboardBestScore").textContent = profile.bestScore.toLocaleString();
         $("leaderboardBestLines").textContent = profile.bestRunLines.toLocaleString();
         $("leaderboardTotalLines").textContent = profile.totalLines.toLocaleString();
         $("leaderboardEmpty").hidden = profile.leaderboard.length > 0;
+        if (!renderRows) return;
+        rows.textContent = "";
         for (const [index, run] of profile.leaderboard.entries()) {
           const row = document.createElement("tr");
           const values = [
@@ -1344,7 +1490,7 @@
         return rank;
       }
 
-      function updateProfileUI() {
+      function updateProfileUI({ refreshCollections = true } = {}) {
         $("bestScore").textContent = formatScore(profile.bestScore);
         $("rank").textContent = getRank().name;
         $("xpText").textContent = `${profile.xp} XP`;
@@ -1359,10 +1505,16 @@
         $("xpProgress").setAttribute("aria-valuenow", String(progress));
         $("xpHint").textContent = nextRank ? `Next rank: ${nextRank.xp} XP` : "Top rank reached";
         $("achievementCount").textContent = `${profile.unlocked.length} / ${ACHIEVEMENTS.length} unlocked`;
-        updatePlayerCard();
-        renderRankList();
-        renderShop();
-        renderLeaderboard();
+        if (refreshCollections) {
+          updatePlayerCard();
+          renderRankList();
+          renderShop();
+          renderLeaderboard();
+        } else {
+          updateShopSummary();
+          updateShopItemAvailability();
+          renderLeaderboard(false);
+        }
       }
 
       function renderAchievements() {
@@ -1387,29 +1539,36 @@
         };
         const list = $("achievementList");
         list.textContent = "";
+        const unlockedIds = new Set(profile.unlocked);
         for (const category of categories) {
           const achievements = ACHIEVEMENTS.filter(item => categoryFor(item.id) === category.id);
           if (achievements.length === 0) continue;
           const details = document.createElement("details");
           details.className = "achievement-category";
           const summary = document.createElement("summary");
-          const unlocked = achievements.filter(item => profile.unlocked.includes(item.id)).length;
+          const unlocked = achievements.filter(item => unlockedIds.has(item.id)).length;
           summary.textContent = category.title;
           const count = document.createElement("span");
           count.textContent = `${unlocked} / ${achievements.length}`;
           summary.append(count);
           const items = document.createElement("ul");
           items.className = "achievement-list";
-          for (const achievement of achievements) {
-            const card = document.createElement("li");
-            card.className = `achievement${profile.unlocked.includes(achievement.id) ? " unlocked" : ""}`;
-            const title = document.createElement("strong");
-            title.textContent = achievement.name;
-            const description = document.createElement("span");
-            description.textContent = `${achievement.desc} +${achievement.xp} XP · +${achievementScrap(achievement)} Scrap`;
-            card.append(title, description);
-            items.append(card);
-          }
+          details.addEventListener("toggle", () => {
+            if (!details.open) {
+              items.textContent = "";
+              return;
+            }
+            for (const achievement of achievements) {
+              const card = document.createElement("li");
+              card.className = `achievement${unlockedIds.has(achievement.id) ? " unlocked" : ""}`;
+              const title = document.createElement("strong");
+              title.textContent = achievement.name;
+              const description = document.createElement("span");
+              description.textContent = `${achievement.desc} +${achievement.xp} XP · +${achievementScrap(achievement)} Scrap`;
+              card.append(title, description);
+              items.append(card);
+            }
+          });
           details.append(summary, items);
           list.append(details);
         }
@@ -1486,8 +1645,8 @@
           const reward = earnScrap(100000);
           rewardText = `${reward.toLocaleString()} Scrap · JACKPOT`;
         }
-        checkAchievements();
-        updateProfileUI();
+        const achievementsChanged = checkAchievements();
+        updateProfileUI({ refreshCollections: achievementsChanged });
         saveProfile();
         playSound("crate");
         showToast("CRATE OPENED", rewardText);
@@ -1508,8 +1667,7 @@
         const oldRank = getRank().name;
         profile.xp += earned;
         const newRank = getRank().name;
-        updateProfileUI();
-        saveProfile();
+        if (newRank !== oldRank) renderRankList();
         showToast(newRank !== oldRank ? `RANK UP: ${newRank}` : `+${earned} XP`, reason);
       }
 
@@ -1536,11 +1694,8 @@
             }
           }
         } while (unlockedThisCheck > 0);
-        if (gained > 0) {
-          updateProfileUI();
-          saveProfile();
-          renderAchievements();
-        }
+        if (gained > 0) renderAchievements();
+        return gained > 0;
       }
 
       function refillBag() {
@@ -1644,7 +1799,6 @@
         checkAchievements();
         saveProfile();
         updateProfileUI();
-        renderLeaderboard();
         $("overlayTitle").textContent = "GRID LOCKED";
         $("overlayMessage").textContent = `Run complete · ${score.toLocaleString()} points · ${lines} lines`;
         $("overlay").hidden = false;
@@ -1747,9 +1901,9 @@
         if (board.every(value => value === 0)) profile.perfectClears++;
         if (score > profile.bestScore) profile.bestScore = score;
         updateStats();
-        checkAchievements();
+        const achievementsChanged = checkAchievements();
         saveProfile();
-        updateProfileUI();
+        updateProfileUI({ refreshCollections: achievementsChanged });
         spawn();
         draw();
       }
@@ -1811,18 +1965,32 @@
         context.globalAlpha = 1;
       }
 
+      function drawGrid(context, width, height, cellSize) {
+        const dark = settings.colorMode === "dark";
+        context.fillStyle = dark ? "#132632" : "#edf6f5";
+        context.fillRect(0, 0, width, height);
+        context.strokeStyle = dark
+          ? (settings.preset === "deluxe" ? "#3d6572" : "#2a4652")
+          : (settings.preset === "deluxe" ? "#bfdcda" : "#d2e5e3");
+        context.lineWidth = 1;
+        context.beginPath();
+        for (let x = 0; x <= width; x += cellSize) {
+          context.moveTo(x + .5, 0);
+          context.lineTo(x + .5, height);
+        }
+        for (let y = 0; y <= height; y += cellSize) {
+          context.moveTo(0, y + .5);
+          context.lineTo(width, y + .5);
+        }
+        context.stroke();
+      }
+
+      function renderBoardGrid() {
+        drawGrid(boardGridCtx, boardGrid.width, boardGrid.height, CELL);
+      }
+
       function draw() {
-        ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
-        ctx.fillStyle = settings.preset === "minimal" ? "#080e0c" : "#06100c";
-        ctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
-        ctx.strokeStyle = settings.preset === "minimal" ? "#1b2921" : settings.preset === "deluxe" ? "#204a2d" : "#163020";
-        ctx.lineWidth = 1;
-        for (let x = 0; x <= COLS; x++) {
-          ctx.beginPath(); ctx.moveTo(x * CELL + .5, 0); ctx.lineTo(x * CELL + .5, ROWS * CELL); ctx.stroke();
-        }
-        for (let y = 0; y <= ROWS; y++) {
-          ctx.beginPath(); ctx.moveTo(0, y * CELL + .5); ctx.lineTo(COLS * CELL, y * CELL + .5); ctx.stroke();
-        }
+        ctx.drawImage(boardGrid, 0, 0);
         for (let i = 0; i < board.length; i++) {
           if (board[i]) drawCell(ctx, i % COLS, Math.floor(i / COLS), CELL, colorFor(TYPES[board[i] - 1]));
         }
@@ -1863,31 +2031,14 @@
 
       function drawNext() {
         nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-        nextCtx.fillStyle = settings.preset === "minimal" ? "#080e0c" : "#06100c";
-        nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
-        nextCtx.strokeStyle = settings.preset === "deluxe" ? "#204a2d" : "#173323";
-        for (let x = 0; x <= 7; x++) {
-          nextCtx.beginPath(); nextCtx.moveTo(x * 20 + .5, 0); nextCtx.lineTo(x * 20 + .5, 112); nextCtx.stroke();
-        }
-        for (let y = 0; y <= 5; y++) {
-          nextCtx.beginPath(); nextCtx.moveTo(0, y * 20 + .5); nextCtx.lineTo(140, y * 20 + .5); nextCtx.stroke();
-        }
+        drawGrid(nextCtx, nextCanvas.width, nextCanvas.height, 20);
         if (!nextType) return;
         for (const [x, y] of SHAPES[nextType]) drawCell(nextCtx, x + 1, y + 1, 20, colorFor(nextType));
       }
 
       function drawHeld() {
         holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
-        holdCtx.fillStyle = settings.preset === "minimal" ? "#080e0c" : "#06100c";
-        holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
-        holdCtx.strokeStyle = settings.preset === "deluxe" ? "#204a2d" : "#173323";
-        holdCtx.lineWidth = 1;
-        for (let x = 0; x <= holdCanvas.width; x += 20) {
-          holdCtx.beginPath(); holdCtx.moveTo(x + .5, 0); holdCtx.lineTo(x + .5, holdCanvas.height); holdCtx.stroke();
-        }
-        for (let y = 0; y <= holdCanvas.height; y += 20) {
-          holdCtx.beginPath(); holdCtx.moveTo(0, y + .5); holdCtx.lineTo(holdCanvas.width, y + .5); holdCtx.stroke();
-        }
+        drawGrid(holdCtx, holdCanvas.width, holdCanvas.height, 20);
         $("holdLabel").textContent = heldType ? heldType : "EMPTY";
         if (!heldType) return;
         const blocks = SHAPES[heldType];
@@ -1944,7 +2095,6 @@
         clearCurrentRun();
         applyPreset();
         updateProfileUI();
-        renderLeaderboard();
         renderAchievements();
         const saved = saveProfile();
         showToast(saved ? "Progress reset" : "Progress reset temporarily", saved
@@ -2011,7 +2161,7 @@
       }
 
       function scheduleLoop() {
-        if (loopScheduled) return;
+        if (loopScheduled || document.hidden) return;
         loopScheduled = true;
         requestAnimationFrame(loop);
       }
@@ -2075,6 +2225,11 @@
         applyPreset();
         saveSettings();
       });
+      $("colorModeSelect").addEventListener("change", event => {
+        settings.colorMode = event.target.value === "dark" ? "dark" : "light";
+        applyPreset();
+        saveSettings();
+      });
       $("operatorNameInput").addEventListener("change", event => {
         const name = event.target.value.trim().replace(/\s+/g, " ").slice(0, 20);
         settings.operatorName = name || "PLAYER_01";
@@ -2127,7 +2282,7 @@
       });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden && running && !paused) togglePause();
-        else if (!document.hidden && matrixEnabled) scheduleLoop();
+        else if (!document.hidden && (matrixEnabled || particles.length || performance.now() < flashUntil)) scheduleLoop();
       });
 
       applyPreset();
