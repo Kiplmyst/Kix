@@ -99,6 +99,14 @@
 			const pauseBtn = document.getElementById('pause');
 			const layoutToggle = document.getElementById('layout-toggle');
 			const gameLayout = document.getElementById('game-layout');
+			const directions = {
+				up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
+				left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
+			};
+			const keyDirections = {
+				ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down',
+				ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right'
+			};
 			const cells = 20;
 			const size = canvas.width / cells;
 			let snake, food, direction, nextDirection, score, timer, running = false, paused = false;
@@ -139,8 +147,15 @@
 				direction = nextDirection;
 				const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
 				const ate = head.x === food.x && head.y === food.y;
-				const body = ate ? snake : snake.slice(0, -1);
-				if (head.x < 0 || head.x >= cells || head.y < 0 || head.y >= cells || body.some(part => part.x === head.x && part.y === head.y)) {
+				const collisionLimit = snake.length - (ate ? 0 : 1);
+				let collision = false;
+				for (let i = 0; i < collisionLimit; i++) {
+					if (snake[i].x === head.x && snake[i].y === head.y) {
+						collision = true;
+						break;
+					}
+				}
+				if (head.x < 0 || head.x >= cells || head.y < 0 || head.y >= cells || collision) {
 					endGame();
 					return;
 				}
@@ -175,11 +190,7 @@
 			}
 
 			function setDirection(name) {
-				const dirs = {
-					up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
-					left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
-				};
-				const candidate = dirs[name];
+				const candidate = directions[name];
 				if (candidate && (candidate.x !== -direction.x || candidate.y !== -direction.y)) nextDirection = candidate;
 			}
 
@@ -203,8 +214,7 @@
 				}
 			});
 			document.addEventListener('keydown', event => {
-				const keys = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
-				if (keys[event.key]) { event.preventDefault(); setDirection(keys[event.key]); }
+				if (keyDirections[event.key]) { event.preventDefault(); setDirection(keyDirections[event.key]); }
 				if (event.code === 'Space') { event.preventDefault(); if (!running) startGame(); else pauseBtn.click(); }
 			});
 			document.querySelectorAll('.pad button').forEach(button => button.addEventListener('click', () => setDirection(button.dataset.dir)));
